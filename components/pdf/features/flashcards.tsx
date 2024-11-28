@@ -1,23 +1,53 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ScrollText, ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
 
 interface FlashcardsProps {
-  flashcards: Array<{
-    question: string;
-    answer: string;
-  }>;
+  url: string;
+  currentPage: number;
   isLoading: boolean;
+  onBack: () => void;
 }
 
-export function Flashcards({ flashcards, isLoading }: FlashcardsProps) {
+export function Flashcards({ url, currentPage, isLoading }: FlashcardsProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [flashcards, setFlashcards] = useState<Array<{
+    question: string;
+    answer: string;
+  }>>([]);
+
+  useEffect(() => {
+    async function processFlashcards() {
+      try {
+        // Here you would process the PDF and generate flashcards
+        // For now, we'll use dummy data
+        setFlashcards([
+          {
+            question: "What is the main purpose of this document?",
+            answer: "To provide information about key concepts and features."
+          },
+          {
+            question: "What are the key features discussed?",
+            answer: "Navigation, AI features, and document processing capabilities."
+          },
+          {
+            question: "How does the system handle PDF processing?",
+            answer: "Through advanced AI algorithms and text extraction methods."
+          }
+        ]);
+      } catch (error) {
+        console.error('Error processing flashcards:', error);
+      }
+    }
+
+    processFlashcards();
+  }, [url, currentPage]);
 
   if (isLoading) {
     return (
@@ -69,34 +99,34 @@ export function Flashcards({ flashcards, isLoading }: FlashcardsProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${currentIndex}-${isFlipped}`}
-            initial={{ opacity: 0, rotateY: -90 }}
-            animate={{ opacity: 1, rotateY: 0 }}
-            exit={{ opacity: 0, rotateY: 90 }}
-            transition={{ duration: 0.3 }}
-            className="absolute inset-0"
+        <motion.div
+          key={`${currentIndex}-${isFlipped}`}
+          initial={{ opacity: 0, rotateY: -90 }}
+          animate={{ opacity: 1, rotateY: 0 }}
+          exit={{ opacity: 0, rotateY: 90 }}
+          transition={{ duration: 0.3 }}
+          className="absolute inset-0"
+        >
+          <Card 
+            className="h-full p-6 flex flex-col justify-center items-center text-center transition-shadow hover:shadow-lg cursor-pointer"
+            onClick={() => setIsFlipped(!isFlipped)}
           >
-            <Card className="h-full p-6 flex flex-col justify-center items-center text-center transition-shadow hover:shadow-lg cursor-pointer"
-                  onClick={() => setIsFlipped(!isFlipped)}>
-              <div className="mb-4">
-                <div className="p-2 bg-primary/10 rounded-lg inline-block">
-                  <ScrollText className="h-4 w-4 text-primary" />
-                </div>
+            <div className="mb-4">
+              <div className={`p-2 ${getFeatureColorClass(pdfViewerConfig.features.ai.features.flashcards.color)} rounded-lg inline-block`}>
+                <span className="text-2xl">{pdfViewerConfig.features.ai.features.flashcards.emoji}</span>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {isFlipped ? currentCard.answer : currentCard.question}
-              </p>
-              <motion.div
-                className="absolute bottom-2 right-2"
-                animate={{ rotate: isFlipped ? 180 : 0 }}
-              >
-                <RotateCw className="h-4 w-4 text-muted-foreground/50" />
-              </motion.div>
-            </Card>
-          </motion.div>
-        </AnimatePresence>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isFlipped ? currentCard.answer : currentCard.question}
+            </p>
+            <motion.div
+              className="absolute bottom-2 right-2"
+              animate={{ rotate: isFlipped ? 180 : 0 }}
+            >
+              <RotateCw className="h-4 w-4 text-muted-foreground/50" />
+            </motion.div>
+          </Card>
+        </motion.div>
       </motion.div>
 
       <div className="flex items-center justify-between">
@@ -124,4 +154,19 @@ export function Flashcards({ flashcards, isLoading }: FlashcardsProps) {
       </div>
     </div>
   );
+}
+
+function getFeatureColorClass(color: string) {
+  switch (color) {
+    case 'blue':
+      return 'bg-blue-100 dark:bg-blue-900/20';
+    case 'green':
+      return 'bg-green-100 dark:bg-green-900/20';
+    case 'orange':
+      return 'bg-orange-100 dark:bg-orange-900/20';
+    case 'purple':
+      return 'bg-purple-100 dark:bg-purple-900/20';
+    default:
+      return 'bg-gray-100 dark:bg-gray-900/20';
+  }
 } 

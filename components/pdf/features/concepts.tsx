@@ -5,28 +5,47 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Star, Lightbulb, Bookmark } from 'lucide-react';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
+import { useState, useEffect } from 'react';
 
 interface ConceptsProps {
-  concepts: Array<{
-    text: string;
-    type: 'must-know' | 'good-to-know' | 'optional';
-  }>;
+  url: string;
+  currentPage: number;
   isLoading: boolean;
 }
 
-export function Concepts({ concepts, isLoading }: ConceptsProps) {
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'must-know':
-        return <Star className="h-4 w-4" />;
-      case 'good-to-know':
-        return <Lightbulb className="h-4 w-4" />;
-      case 'optional':
-        return <Bookmark className="h-4 w-4" />;
-      default:
-        return null;
+export function Concepts({ url, currentPage, isLoading }: ConceptsProps) {
+  const conceptsConfig = pdfViewerConfig.features.ai.features.concepts;
+  const [concepts, setConcepts] = useState<Array<{
+    text: string;
+    type: 'must-know' | 'good-to-know' | 'optional';
+  }>>([]);
+
+  useEffect(() => {
+    async function processConcepts() {
+      try {
+        // Here you would process the PDF and extract concepts
+        // For now, we'll use dummy data
+        setConcepts([
+          {
+            text: "This is a must-know concept",
+            type: "must-know"
+          },
+          {
+            text: "This is good to know",
+            type: "good-to-know"
+          },
+          {
+            text: "This is optional information",
+            type: "optional"
+          }
+        ]);
+      } catch (error) {
+        console.error('Error processing concepts:', error);
+      }
     }
-  };
+
+    processConcepts();
+  }, [url, currentPage]);
 
   if (isLoading) {
     return (
@@ -59,7 +78,7 @@ export function Concepts({ concepts, isLoading }: ConceptsProps) {
       transition={{ duration: 0.3 }}
     >
       {concepts.map((concept, index) => {
-        const config = pdfViewerConfig.features.concepts.types[concept.type];
+        const config = conceptsConfig.types[concept.type];
         return (
           <motion.div
             key={index}
