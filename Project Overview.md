@@ -1,149 +1,157 @@
-### **Project Overview**
+## **Project Overview: OmniDoc - AI-Powered PDF Editor**
 
-**Project Name:** OmniDoc  
-**Objective:** Develop a **high-end PDF editor page** with built-in **AI capabilities**, delivering smart features for content interaction and understanding. The app will focus on modular design, responsive desktop-first development, and seamless AI-enhanced functionality.
-
-OmniDoc will offer advanced tools for navigating, summarizing, and interacting with PDFs through a sleek dark-themed interface powered by **ShadcnUI**, with dynamic animations using **Framer Motion**. Key features will be accessible via tabs in a modal triggered by a floating button in the bottom-right corner of the PDF editor.
+**OmniDoc** is a high-end, dark-mode PDF editor designed for desktop screens, focusing on seamless integration of AI capabilities to enhance document interaction. The platform combines a modular UI with smart AI-powered features, enabling users to efficiently navigate and understand PDFs. The application prioritizes a modern user experience with sleek animations and intuitive interfaces, powered by cutting-edge technologies.
 
 ---
 
-### **MVP Features**
+## **MVP Features**
 
-#### **Core Features** (Embedded in the PDF Editor):
-1. **PDF Upload and Parsing**:
-   - Upload a PDF and parse its text and structure for further interaction.
-   - Extract headings, page content, and metadata.
-2. **Basic Navigation Tools**:
-   - Table of Contents (TOC): Auto-generated TOC based on document structure.
-   - Thumbnails: Small, scrollable previews of each page for quick navigation.
-   - Page Controls: Pagination, zoom in/out, and jump-to-page functionalities.
-3. **Smart AI Context Navigation**:
-   - Navigate directly to relevant sections based on AI-powered suggestions.
+### **1. PDF Upload and Parsing**
+- **Description**: Users can upload PDF files, which are parsed to extract text, metadata, and structural elements.
+- **Capabilities**:
+  - Process and display PDF content in an interactive editor.
+  - Identify and handle image-based text using OCR (Tesseract).
 
-#### **Advanced Features** (Accessible via Modal Tabs):
+### **2. Basic Navigation Tools**
+- **Description**: Essential navigation features to help users browse and explore the PDF.
+- **Components**:
+  - **Table of Contents (TOC)**: Generated dynamically based on the document structure.
+  - **Page Thumbnails**: Scrollable mini-previews of pages for quick access.
+  - **Page Controls**: Controls to navigate to the next, previous, or specific page.
+
+### **3. Smart AI-Based Context Navigation**
+- **Description**: AI-driven tools to help users locate and understand relevant content within the document.
+- **Components**:
+  - Context-aware recommendations and links for efficient navigation.
+
+### **4. Features Accessible via Tabs in a Dialog**
+A floating button at the bottom-right corner opens a dialog box containing tabs for the following features:
 1. **Key Concept Highlighting**:
-   - Extract and display categorized key concepts ("Must-Know," "Good-to-Know," "Optional").
-   - Highlight these concepts directly in the PDF viewer for contextual reference.
+   - Identifies and categorizes essential concepts into "Must-Know," "Good-to-Know," and "Optional."
+   - Displays them as interactive highlights overlaid on the PDF.
+
 2. **Simplified Summaries**:
-   - Generate beginner-friendly summaries for complex sections of the document.
-   - Provide "Expand/Collapse" options for concise vs. detailed views.
+   - Generates concise summaries of sections or pages using AI.
+   - Summaries are presented alongside their respective content.
+
 3. **Flashcards**:
-   - Create study notes or flashcards from PDF content.
-   - Support interactive "Flip Card" animations using **Framer Motion**.
-4. **AI Chat (+ Smart Suggestions)**:
-   - Enable users to ask natural language questions about the PDF.
-   - Provide smart suggestions to guide users toward relevant content or queries.
+   - Automatically generates flashcards from the document content.
+   - Includes key points and related questions for learning or revision.
+
+4. **AI Chat + Smart Suggestions**:
+   - A chatbot interface for natural language queries.
+   - Provides contextual suggestions and answers based on document content using Retrieval-Augmented Generation (RAG).
 
 ---
 
-### **UI/UX Design Instructions**
+## **Tech Stack**
 
-#### **General Design Guidelines**
-- **Theme**: Dark mode.
-- **Icons**: Use **Lucide Icons** for all interactive elements.
-- **Animations**: Leverage **Framer Motion** for smooth transitions, modal animations, and interactivity.
-- **Responsiveness**: Focus on desktop screens; display a **"Not Supported Yet"** message for screens <768px.
-- **Accessibility**: Ensure contrast ratios, ARIA roles, and semantic HTML for usability.
+### **Core Technologies**
+- **Vercel's AI SDK**: For seamless AI integration using OpenAI APIs.
+- **SWR (Stale-While-Revalidate)**: Efficient data fetching and caching in Next.js.
+- **Supabase**:
+  - Database: Store user data, PDF metadata, and parsed content.
+  - Auth: Manage user authentication for secure access.
+  - Vectorbase: Power RAG capabilities with efficient vector storage and retrieval.
+- **OCR (Tesseract)**: Extract text from image-based PDFs.
 
----
-
-#### **1. PDF Editor Layout**
-- **Header**:
-  - OmniDoc logo and name on the left.
-  - Action buttons (e.g., "Upload New PDF") on the right.
-- **Main Content Area**:
-  - **Left Sidebar**:
-    - Table of Contents (collapsible tree view).
-    - Thumbnails (scrollable preview of pages).
-  - **Right Pane**:
-    - Full-page PDF viewer with:
-      - **Page Controls**:
-        - Pagination buttons (Prev/Next).
-        - Zoom in/out.
-        - Jump-to-page input field.
+### **UI and Animations**
+- **ShadcnUI**: Modern, modular, and accessible UI components for building the PDF editor.
+- **LucideIcons**: Clean and consistent icons for navigation and actions.
+- **Framer Motion**: Adds smooth animations and transitions for a polished user experience.
 
 ---
 
-#### **2. Floating Action Button (FAB)**
-- **Placement**: Bottom-right corner of the PDF viewer.
-- **Design**:
-  - Use a circular button with an **Lucide Icons** "command" or "menu" icon.
-  - On hover, display a tooltip: "Open AI Tools."
-- **Behavior**:
-  - Clicking the FAB opens a **modal dialog** with tabbed navigation for advanced features.
+## **Instructions for Features and UI**
+
+### **1. Overall UI Design**
+- **Theme**: Dark mode with a minimalist, professional look.
+- **Layout**:
+  - **Editor Canvas**: The main area displaying the PDF content.
+  - **Sidebar**: A collapsible sidebar for navigation tools (TOC, thumbnails).
+  - **Floating Button**: A bottom-right FAB (Floating Action Button) to access advanced AI features.
+- **Desktop-Only Support**:
+  - If the screen width is smaller than 768px, show a "Not Supported Yet" message on a blank page.
 
 ---
 
-#### **3. Modal Dialog (Advanced Features)**
+### **2. PDF Editor Page**
+
+#### **Upload and Parsing**
+- **UI Components**:
+  - Drag-and-drop area for file upload.
+  - Manual "Browse Files" button.
+- **User Feedback**:
+  - Show a loading spinner during upload and parsing.
+  - Display error messages for unsupported files.
+
+#### **Document Viewer**
+- **Main Editor**:
+  - Display parsed PDF content with interactive zoom, scroll, and pan features.
+  - Implement a scalable layout for future modular tools.
+- **Sidebar**:
+  - **TOC**: Dynamically generated from document headings.
+  - **Thumbnails**: Scrollable list of page previews for navigation.
+
+#### **Basic Navigation**
+- **Components**:
+  - Page controls (next, previous, jump-to-page).
+  - Smooth transitions (e.g., zooming, panning) using Framer Motion.
+
+---
+
+### **3. Floating AI Tools Dialog**
+
+#### **UI Design**
+- **Trigger**: A FAB at the bottom-right corner, styled with LucideIcons for accessibility.
+- **Dialog**:
+  - Opens with a smooth animation (Framer Motion).
+  - Contains tabs for "Key Concepts," "Summaries," "Flashcards," and "Chat."
 - **Tabs**:
-  - **Key Concepts**:
-    - Display extracted key concepts as categorized lists.
-    - Allow users to click on a concept to navigate to its location in the PDF.
-  - **Simplified Summaries**:
-    - Present summaries in an expandable/collapsible list.
-    - Include a "Copy Summary" button for each section.
-  - **Flashcards**:
-    - Show a stack of flashcards with interactive flipping animations.
-    - Include "Next" and "Previous" controls to browse flashcards.
-  - **AI Chat**:
-    - Chat interface with a user input box and response history.
-    - Include a "Suggested Questions" section for guided interaction.
+  - Each tab represents a feature, with content dynamically fetched using SWR.
 
-- **Transitions**:
-  - Use **Framer Motion** for modal open/close animations.
-  - Smooth transitions between tabs.
+#### **Feature-Specific UI**
+1. **Key Concepts**:
+   - Overlays concepts as highlights on the PDF.
+   - Allows users to toggle visibility of different categories.
 
----
+2. **Summaries**:
+   - Show summaries in a collapsible section.
+   - Provide an option to generate summaries for specific pages or sections.
 
-### **Tech Stack**
+3. **Flashcards**:
+   - Interactive flip-card design with Framer Motion for animations.
+   - Include "Save" and "Export" options.
 
-#### **Primary Technologies**
-1. **Vercel AI SDK (OpenAI)**: 
-   - For implementing smart AI features like summaries, key concepts, and chat.
-2. **Vercel SWR**:
-   - For efficient data fetching, caching, and revalidation.
-3. **ShadcnUI**:
-   - For a modern, accessible, and responsive UI design.
-4. **Lucide Icons**:
-   - To ensure consistent, lightweight icons throughout the application.
-5. **Framer Motion**:
-   - For creating dynamic, fluid animations in modal dialogs and interactions.
-
-#### **Supporting Technologies**
-1. **Supabase**:
-   - Database for storing user files (if needed in future).
-   - Vector-based storage for RAG (Retrieval-Augmented Generation).
-   - Authentication (optional in future iterations).
-2. **Tesseract OCR**:
-   - For handling PDFs with image-based text.
-3. **OpenAI + Supabase for RAG**:
-   - Implement AI-enhanced retrieval and context-aware navigation.
+4. **AI Chat + Smart Suggestions**:
+   - Chat window with:
+     - A text input field for queries.
+     - Chat bubbles for AI-generated responses.
+   - Suggestions panel dynamically updated based on user interaction.
 
 ---
 
-### **MVP UI Interaction Flow**
-
-#### **Desktop-First Flow**
-1. **Landing Page**:
-   - A clean page with an "Upload PDF" button.
-   - On successful upload, transition to the PDF Editor.
-2. **PDF Editor**:
-   - Display the PDF document with navigation tools and action controls.
-   - Include the FAB in the bottom-right corner.
-3. **AI Tools Modal**:
-   - Triggered by the FAB.
-   - Default to the "Key Concepts" tab but allow switching between tabs via a header.
-
-#### **Fallback for Small Screens (<768px)**
-- Display a centered message:
-  - "OmniDoc is currently optimized for desktop screens. Please use a larger device."
+### **4. Animations and Interactions**
+- **Framer Motion**:
+  - Dialog opening/closing animations.
+  - Smooth transitions for navigation (e.g., page transitions, zoom).
+  - Flip animations for flashcards.
+- **Interactive Feedback**:
+  - Hover effects for buttons and tabs.
+  - Loading spinners during AI processing.
 
 ---
 
-### **Scalability & Modularity**
-- **Component-Based Design**:
-  - Modularize features like FAB, modal, and individual tabs for reusability.
-- **Animation Consistency**:
-  - Use **Framer Motion** globally to ensure consistent animation behavior.
-- **Future-Ready**:
-  - Prepare for future integrations (e.g., mobile support, multi-user collaboration).
+## **Next Steps**
+
+1. **Modular Implementation**:
+   - Design reusable components for the dialog, sidebar, and editor canvas.
+   - Ensure each feature can be independently developed and integrated.
+
+2. **Feature Prioritization**:
+   - Start with PDF upload, parsing, and navigation.
+   - Add AI features (Key Concepts, Summaries, Flashcards, Chat) iteratively.
+
+3. **Testing**:
+   - Test the UI and features with various PDF files for robustness.
+   - Ensure smooth interactions and animations for all components.
