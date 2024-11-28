@@ -4,14 +4,33 @@ import { useRouter } from 'next/navigation';
 import { UploadZone } from '@/components/pdf/upload-zone';
 import { ROUTES } from '@/lib/constants';
 import { motion } from 'framer-motion';
+import { usePDFStore } from '@/lib/store/pdf-store';
+import { extractPDFMetadata } from '@/lib/utils/pdf';
 
 export default function UploadPage() {
   const router = useRouter();
+  const { setURL, setMetadata } = usePDFStore();
 
   const handleFileAccepted = async (file: File) => {
-    // TODO: Implement file upload to Supabase
-    // For now, we'll just redirect to the editor
-    router.push(ROUTES.EDITOR);
+    try {
+      // Create object URL for the PDF
+      const url = URL.createObjectURL(file);
+      setURL(url);
+
+      // Extract and store metadata
+      const metadata = await extractPDFMetadata(file);
+      setMetadata({
+        title: metadata.title,
+        author: metadata.author,
+        pageCount: metadata.pageCount,
+      });
+
+      // Navigate to editor
+      router.push(ROUTES.EDITOR);
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      // TODO: Show error toast
+    }
   };
 
   return (
