@@ -9,6 +9,7 @@ import { appConfig } from '@/config/app';
 import { Sidebar } from './features/sidebar';
 import { useInView } from 'react-intersection-observer';
 import { PageControls } from './features/page-controls';
+import { cn } from '@/lib/utils';
 
 // Initialize worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
@@ -127,7 +128,7 @@ export function PDFViewer({ url }: PDFViewerProps) {
   }, [handlePageVisibilityChange]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-full">
       <Sidebar
         numPages={numPages}
         currentPage={currentPage}
@@ -151,12 +152,18 @@ export function PDFViewer({ url }: PDFViewerProps) {
             element?.scrollIntoView({ behavior: 'smooth' });
           }}
           onScaleChange={handleScaleChange}
-          url={url}
         />
         
         <motion.div 
           ref={containerRef}
-          className={`absolute inset-0 ${pdfViewerConfig.ui.layout.viewer.background} ${pdfViewerConfig.ui.layout.viewer.pattern} overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-primary/20 hover:scrollbar-thumb-primary/40 scrollbar-track-transparent`}
+          className={cn(
+            "absolute inset-0 top-[3.5rem]", // Height of PageControls
+            pdfViewerConfig.ui.layout.viewer.background,
+            pdfViewerConfig.ui.layout.viewer.pattern,
+            "overflow-y-auto overflow-x-hidden",
+            "scrollbar-thin scrollbar-thumb-primary/20",
+            "hover:scrollbar-thumb-primary/40 scrollbar-track-transparent"
+          )}
         >
           <motion.div 
             className="min-h-full w-full flex flex-col items-center py-8 px-5"
