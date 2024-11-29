@@ -11,13 +11,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { appConfig } from '@/config/app';
-
-interface TOCItem {
-  title: string;
-  pageNumber: number;
-  level: number;
-  children?: TOCItem[];
-}
+import { TOCItem } from '@/lib/types/pdf';
 
 interface TableOfContentsProps {
   items: TOCItem[];
@@ -65,19 +59,20 @@ const truncateHelpers = {
     return /^(https?:\/\/|\/|\[|\{|\(|`|#)/.test(text);
   },
 
-  // Smart truncate based on content type
-  smartTruncate: (text: string, level: number): string => {
-    const originalText = text.trim();
+  // Smart truncate based on content type and metadata
+  smartTruncate: (item: TOCItem): string => {
+    const originalText = item.title.trim();
     
     // Don't truncate special content
     if (truncateHelpers.preserveSpecialContent(originalText)) {
       return originalText;
     }
 
-    // Calculate max length based on level
-    const maxLength = level === 0 
+    // Use metadata if available
+    const fontSize = item.metadata?.fontSize;
+    const maxLength = item.level === 0 
       ? TEXT_CONFIG.breakpoints.title 
-      : level === 1 
+      : item.level === 1 
         ? TEXT_CONFIG.breakpoints.subtitle 
         : TEXT_CONFIG.breakpoints.content;
 
@@ -157,7 +152,7 @@ export function TableOfContents({ items, currentPage, onPageChange }: TableOfCon
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedItems.has(item.title);
     const isCurrentPage = item.pageNumber === currentPage;
-    const truncatedTitle = truncateHelpers.smartTruncate(item.title, item.level);
+    const truncatedTitle = truncateHelpers.smartTruncate(item);
 
     return (
       <motion.div
@@ -217,7 +212,9 @@ export function TableOfContents({ items, currentPage, onPageChange }: TableOfCon
                   className="max-w-[350px] break-words"
                 >
                   <div className="flex flex-col gap-1.5 py-1">
-                    <p className="text-sm font-medium leading-relaxed">{item.title}</p>
+                    <p className="text-sm font-medium leading-relaxed">
+                      {item.metadata?.originalText || item.title}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       Page {item.pageNumber}
                     </p>

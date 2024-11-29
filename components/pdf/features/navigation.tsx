@@ -8,7 +8,8 @@ import { pdfViewerConfig } from '@/config/pdf-viewer';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { cn } from '@/lib/utils';
 import { TableOfContents } from './table-of-contents';
-import { TOCItem } from '@/lib/types/pdf';
+import { TOCItem, PDFTextItem } from '@/lib/types/pdf';
+import { TOCProcessor } from '@/lib/services/toc-processor';
 
 interface NavigationProps {
   numPages: number;
@@ -16,15 +17,6 @@ interface NavigationProps {
   onPageChange: (page: number) => void;
   url: string;
   onPathChange: (path: string[]) => void;
-}
-
-interface PDFTextItem {
-  str: string;
-  dir: string;
-  transform: number[];
-  width: number;
-  height: number;
-  fontName: string;
 }
 
 interface PDFTextContent {
@@ -46,38 +38,28 @@ export function Navigation({ numPages, currentPage, onPageChange, url, onPathCha
     setVisiblePage(currentPage);
   }, [currentPage]);
 
-  // Extract and process outline
+  // Extract and process outline with enhanced processor
   useEffect(() => {
     async function generateOutline() {
       try {
         const pdf = await pdfjs.getDocument(url).promise;
-        const outlineItems: TOCItem[] = [];
+        let outlineItems: TOCItem[] = [];
         
-        // Process each page
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
-          const textContent: PDFTextContent = await page.getTextContent();
-          
-          // Process text items to find potential headings
-          for (const item of textContent.items) {
-            const textItem = item as PDFTextItem;
-            
-            // Check if text item might be a heading based on properties
-            if (isHeading(textItem)) {
-              outlineItems.push({
-                title: textItem.str.trim(),
-                pageNumber: pageNum,
-                level: determineHeadingLevel(textItem),
-                children: []
-              });
-            }
-          }
+        // Try to get PDF's built-in outline first
+        const pdfOutline = await pdf.getOutline();
+        
+        if (pdfOutline && pdfOutline.length > 0) {
+          // Process built-in outline
+          outlineItems = await processBuiltInOutline(pdf, pdfOutline);
+        } else {
+          // Generate outline from content
+          outlineItems = await generateOutlineFromContent(pdf);
         }
 
-        // Organize items into hierarchy
-        const organizedOutline = organizeOutline(outlineItems);
-        console.log('Generated outline:', organizedOutline);
-        setOutline(organizedOutline);
+        // Process through enhanced TOC processor
+        const processedOutline = await TOCProcessor.processTableOfContents(outlineItems);
+        console.log('Enhanced outline:', processedOutline);
+        setOutline(processedOutline);
       } catch (error) {
         console.error('Error generating outline:', error);
         setOutline([]);
@@ -89,58 +71,142 @@ export function Navigation({ numPages, currentPage, onPageChange, url, onPathCha
     }
   }, [url]);
 
-  // Helper functions for outline generation
-  const isHeading = (item: PDFTextItem): boolean => {
-    // Check text properties that might indicate a heading
-    // This is a heuristic approach and might need tuning
-    const fontSize = Math.abs(item.transform[0]); // Extract font size from transform matrix
-    const text = item.str.trim();
+  async function processBuiltInOutline(pdf: any, pdfOutline: any[]): Promise<TOCItem[]> {
+    const processItem = async (item: any, level: number = 0): Promise<TOCItem> => {
+      let pageNumber = 1;
+      try {
+        if (item.dest) {
+          const dest = await pdf.getDestination(item.dest);
+          const pageRef = await pdf.getPageIndex(dest[0]);
+          pageNumber = pageRef + 1;
+        }
+      } catch (error) {
+        console.warn('Error processing outline destination:', error);
+      }
 
-    return (
-      // Check for typical heading characteristics
-      (fontSize > 12 && // Larger than normal text
-      text.length < 100 && // Not too long
-      !/^[0-9.]+$/.test(text) && // Not just numbers
-      text !== '') || // Not empty
-      // Check for common heading patterns
-      /^(Chapter|Section|\d+\.|[IVXLCDM]+\.)\s+\w+/i.test(text) ||
-      /^[A-Z][^.!?]*$/.test(text) // All caps or title case
+      return {
+        title: item.title || 'Untitled Section',
+        pageNumber,
+        level,
+        dest: item.dest,
+        children: item.items ? 
+          await Promise.all(item.items.map((child: any) => 
+            processItem(child, level + 1)
+          )) : undefined
+      };
+    };
+
+    return Promise.all(pdfOutline.map(item => processItem(item)));
+  }
+
+  async function generateOutlineFromContent(pdf: any): Promise<TOCItem[]> {
+    const items: TOCItem[] = [];
+    const fontSizeFrequency = new Map<number, number>();
+    
+    // First pass: analyze font sizes
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+      
+      for (const item of content.items) {
+        const textItem = item as PDFTextItem;
+        const fontSize = Math.abs(textItem.transform[0]);
+        fontSizeFrequency.set(fontSize, (fontSizeFrequency.get(fontSize) || 0) + 1);
+      }
+    }
+
+    // Determine body text font size
+    const bodyFontSize = Array.from(fontSizeFrequency.entries())
+      .reduce((a, b) => a[1] > b[1] ? a : b)[0];
+
+    // Second pass: extract headings
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+      let pendingHeading = '';
+      let lastY = -1;
+      let lastFontSize = -1;
+      
+      for (const item of content.items) {
+        const textItem = item as PDFTextItem;
+        const fontSize = Math.abs(textItem.transform[0]);
+        const y = textItem.transform[5];
+        const text = textItem.str.trim();
+
+        if (!text || /^[\d.]+$/.test(text)) continue;
+
+        if (isHeadingCandidate(textItem, bodyFontSize)) {
+          if (pendingHeading) {
+            items.push({
+              title: pendingHeading.trim(),
+              pageNumber: pageNum,
+              level: determineHeadingLevel(lastFontSize, bodyFontSize),
+              children: []
+            });
+          }
+
+          pendingHeading = text;
+          lastY = y;
+          lastFontSize = fontSize;
+        } else if (
+          pendingHeading && 
+          Math.abs(y - lastY) < 5 && 
+          fontSize === lastFontSize
+        ) {
+          pendingHeading += ' ' + text;
+        } else if (pendingHeading) {
+          items.push({
+            title: pendingHeading.trim(),
+            pageNumber: pageNum,
+            level: determineHeadingLevel(lastFontSize, bodyFontSize),
+            children: []
+          });
+          pendingHeading = '';
+        }
+      }
+
+      if (pendingHeading) {
+        items.push({
+          title: pendingHeading.trim(),
+          pageNumber: pageNum,
+          level: determineHeadingLevel(lastFontSize, bodyFontSize),
+          children: []
+        });
+      }
+    }
+
+    return items.filter(item => 
+      item.title.length >= 3 && 
+      item.title.length <= 200 &&
+      !/^(page|figure|table)\s+\d+$/i.test(item.title)
     );
-  };
+  }
 
-  const determineHeadingLevel = (item: PDFTextItem): number => {
-    const fontSize = Math.abs(item.transform[0]);
-    // Determine level based on font size
-    if (fontSize >= 20) return 0;
-    if (fontSize >= 16) return 1;
+  function isHeadingCandidate(textItem: PDFTextItem, bodyFontSize: number): boolean {
+    const fontSize = Math.abs(textItem.transform[0]);
+    const text = textItem.str.trim();
+    
+    if (fontSize <= bodyFontSize) return false;
+    if (text.length < 3 || text.length > 200) return false;
+    if (/^[\d.]+$/.test(text)) return false;
+
+    const headingPatterns = [
+      /^(Chapter|Section|\d+\.|[IVXLCDM]+\.)\s+\w+/i,
+      /^(Introduction|Conclusion|Abstract|Summary|References|Appendix)/i,
+      /^[\d.]+\s+[A-Z]/,
+      /^[A-Z][^.!?]*$/
+    ];
+
+    return headingPatterns.some(pattern => pattern.test(text)) ||
+           fontSize >= bodyFontSize * 1.2;
+  }
+
+  function determineHeadingLevel(fontSize: number, bodyFontSize: number): number {
+    const sizeRatio = fontSize / bodyFontSize;
+    if (sizeRatio >= 1.5) return 0;
+    if (sizeRatio >= 1.3) return 1;
     return 2;
-  };
-
-  const organizeOutline = (items: TOCItem[]): TOCItem[] => {
-    const root: TOCItem[] = [];
-    const stack: TOCItem[] = [];
-
-    items.forEach((item) => {
-      while (
-        stack.length > 0 &&
-        stack[stack.length - 1].level >= item.level
-      ) {
-        stack.pop();
-      }
-
-      if (stack.length === 0) {
-        root.push(item);
-      } else {
-        const parent = stack[stack.length - 1];
-        if (!parent.children) parent.children = [];
-        parent.children.push(item);
-      }
-
-      stack.push(item);
-    });
-
-    return root;
-  };
+  }
 
   // Scroll to current page thumbnail
   useEffect(() => {
