@@ -15,7 +15,7 @@ export const appConfig = {
     modalTransitionDuration: 0.2,
     sidebarWidth: 300,
     headerHeight: 64,
-    mobileBreakpoint: 768,
+    mobileBreakpoint: 1100,
   },
   emoji: {
     upload: "📄",

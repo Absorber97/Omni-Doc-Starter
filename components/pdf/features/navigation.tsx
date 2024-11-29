@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { cn } from '@/lib/utils';
+import { TableOfContents } from './table-of-contents';
+import { TOCItem } from '@/lib/types/pdf';
 
 interface NavigationProps {
   numPages: number;
@@ -16,8 +18,22 @@ interface NavigationProps {
   onPathChange: (path: string[]) => void;
 }
 
+interface PDFTextItem {
+  str: string;
+  dir: string;
+  transform: number[];
+  width: number;
+  height: number;
+  fontName: string;
+}
+
+interface PDFTextContent {
+  items: PDFTextItem[];
+  styles: Record<string, any>;
+}
+
 export function Navigation({ numPages, currentPage, onPageChange, url, onPathChange }: NavigationProps) {
-  const [outline, setOutline] = useState<any[]>([]);
+  const [outline, setOutline] = useState<TOCItem[]>([]);
   const [isLoadingThumbnails, setIsLoadingThumbnails] = useState(true);
   const [visiblePage, setVisiblePage] = useState(currentPage);
   
@@ -30,19 +46,101 @@ export function Navigation({ numPages, currentPage, onPageChange, url, onPathCha
     setVisiblePage(currentPage);
   }, [currentPage]);
 
-  // Load outline
+  // Extract and process outline
   useEffect(() => {
-    async function getOutline() {
+    async function generateOutline() {
       try {
         const pdf = await pdfjs.getDocument(url).promise;
-        const outline = await pdf.getOutline();
-        setOutline(outline || []);
+        const outlineItems: TOCItem[] = [];
+        
+        // Process each page
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent: PDFTextContent = await page.getTextContent();
+          
+          // Process text items to find potential headings
+          for (const item of textContent.items) {
+            const textItem = item as PDFTextItem;
+            
+            // Check if text item might be a heading based on properties
+            if (isHeading(textItem)) {
+              outlineItems.push({
+                title: textItem.str.trim(),
+                pageNumber: pageNum,
+                level: determineHeadingLevel(textItem),
+                children: []
+              });
+            }
+          }
+        }
+
+        // Organize items into hierarchy
+        const organizedOutline = organizeOutline(outlineItems);
+        console.log('Generated outline:', organizedOutline);
+        setOutline(organizedOutline);
       } catch (error) {
-        console.error('Error loading outline:', error);
+        console.error('Error generating outline:', error);
+        setOutline([]);
       }
     }
-    getOutline();
+
+    if (url) {
+      generateOutline();
+    }
   }, [url]);
+
+  // Helper functions for outline generation
+  const isHeading = (item: PDFTextItem): boolean => {
+    // Check text properties that might indicate a heading
+    // This is a heuristic approach and might need tuning
+    const fontSize = Math.abs(item.transform[0]); // Extract font size from transform matrix
+    const text = item.str.trim();
+
+    return (
+      // Check for typical heading characteristics
+      (fontSize > 12 && // Larger than normal text
+      text.length < 100 && // Not too long
+      !/^[0-9.]+$/.test(text) && // Not just numbers
+      text !== '') || // Not empty
+      // Check for common heading patterns
+      /^(Chapter|Section|\d+\.|[IVXLCDM]+\.)\s+\w+/i.test(text) ||
+      /^[A-Z][^.!?]*$/.test(text) // All caps or title case
+    );
+  };
+
+  const determineHeadingLevel = (item: PDFTextItem): number => {
+    const fontSize = Math.abs(item.transform[0]);
+    // Determine level based on font size
+    if (fontSize >= 20) return 0;
+    if (fontSize >= 16) return 1;
+    return 2;
+  };
+
+  const organizeOutline = (items: TOCItem[]): TOCItem[] => {
+    const root: TOCItem[] = [];
+    const stack: TOCItem[] = [];
+
+    items.forEach((item) => {
+      while (
+        stack.length > 0 &&
+        stack[stack.length - 1].level >= item.level
+      ) {
+        stack.pop();
+      }
+
+      if (stack.length === 0) {
+        root.push(item);
+      } else {
+        const parent = stack[stack.length - 1];
+        if (!parent.children) parent.children = [];
+        parent.children.push(item);
+      }
+
+      stack.push(item);
+    });
+
+    return root;
+  };
 
   // Scroll to current page thumbnail
   useEffect(() => {
@@ -198,15 +296,11 @@ export function Navigation({ numPages, currentPage, onPageChange, url, onPathCha
         <Card className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
             <div className="p-4">
-              {outline.length > 0 ? (
-                <div className="space-y-2">
-                  {outline.map((item) => renderOutlineItem(item))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground text-center py-4">
-                  No table of contents available
-                </div>
-              )}
+              <TableOfContents
+                items={outline}
+                currentPage={currentPage}
+                onPageChange={onPageChange}
+              />
             </div>
           </ScrollArea>
         </Card>
