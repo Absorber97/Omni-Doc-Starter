@@ -86,6 +86,7 @@ export function ResponsiveWrapper({ children }: ResponsiveWrapperProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: appConfig.ui.modalTransitionDuration }}
+          className="mx-auto max-w-[1600px] w-full px-4 sm:px-6 lg:px-8"
         >
           {children}
         </motion.div>
