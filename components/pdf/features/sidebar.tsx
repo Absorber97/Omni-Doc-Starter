@@ -7,12 +7,7 @@ import {
   ChevronRight, 
   FileText, 
   Layers, 
-  Settings2,
-  ZoomIn,
-  ZoomOut,
-  Download,
-  ChevronUp,
-  ChevronDown
+  Settings2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -56,18 +51,6 @@ export function Sidebar({
     setActivePath(newPath);
   };
 
-  const zoomIn = () => {
-    if (scale < pdfViewerConfig.features.navigation.controls.zoom.max) {
-      onScaleChange(scale + pdfViewerConfig.features.navigation.controls.zoom.step);
-    }
-  };
-
-  const zoomOut = () => {
-    if (scale > pdfViewerConfig.features.navigation.controls.zoom.min) {
-      onScaleChange(scale - pdfViewerConfig.features.navigation.controls.zoom.step);
-    }
-  };
-
   return (
     <motion.div
       className={`relative h-full ${pdfViewerConfig.ui.layout.sidebar.background} ${pdfViewerConfig.ui.layout.sidebar.border} ${pdfViewerConfig.ui.layout.sidebar.shadow}`}
@@ -96,89 +79,12 @@ export function Sidebar({
             exit={{ opacity: 0 }}
           >
             <div className="flex h-full flex-col">
-              <div className={pdfViewerConfig.ui.layout.controls.group + ' m-4'}>
-                <TooltipProvider>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-                      disabled={currentPage <= 1}
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </Button>
-                    <span className={pdfViewerConfig.ui.layout.controls.label}>
-                      Page {currentPage} of {numPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => onPageChange(Math.min(numPages, currentPage + 1))}
-                      disabled={currentPage >= numPages}
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-
-                    <div className={pdfViewerConfig.ui.layout.controls.divider} />
-
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={zoomOut}
-                      disabled={scale <= pdfViewerConfig.features.navigation.controls.zoom.min}
-                    >
-                      <ZoomOut className="h-4 w-4" />
-                    </Button>
-                    <span className={pdfViewerConfig.ui.layout.controls.label}>
-                      {Math.round(scale * 100)}%
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={zoomIn}
-                      disabled={scale >= pdfViewerConfig.features.navigation.controls.zoom.max}
-                    >
-                      <ZoomIn className="h-4 w-4" />
-                    </Button>
-
-                    <div className={pdfViewerConfig.ui.layout.controls.divider} />
-
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => window.open(url, '_blank')}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TooltipProvider>
-              </div>
-
-              <div className="border-b p-4">
-                <Breadcrumb>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink onClick={() => handlePathChange([])}>
-                      {activeSection === 'navigation' ? 'Navigation' : 'AI Features'}
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  {activePath.map((path, index) => (
-                    <BreadcrumbItem key={path}>
-                      <BreadcrumbLink 
-                        onClick={() => handlePathChange(activePath.slice(0, index + 1))}
-                      >
-                        {path}
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                  ))}
-                </Breadcrumb>
-              </div>
-
               <Tabs
                 defaultValue="navigation"
                 className="flex-1"
                 onValueChange={(value) => setActiveSection(value as 'navigation' | 'ai')}
               >
-                <div className="border-b px-4">
+                <div className="px-4">
                   <TabsList className={pdfViewerConfig.ui.components.tabs.base}>
                     <TabsTrigger value="navigation" className="flex items-center gap-2 flex-1">
                       <Layers className="h-4 w-4" />

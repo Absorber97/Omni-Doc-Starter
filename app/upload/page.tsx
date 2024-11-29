@@ -6,21 +6,27 @@ import { ROUTES } from '@/lib/constants';
 import { motion } from 'framer-motion';
 import { usePDFStore } from '@/lib/store/pdf-store';
 import { extractPDFMetadata } from '@/lib/utils/pdf';
+import { registerBlobFileName } from '@/lib/utils/text';
 
 export default function UploadPage() {
   const router = useRouter();
-  const { setURL, setMetadata } = usePDFStore();
+  const { setURL, setMetadata, setFilename } = usePDFStore();
 
   const handleFileAccepted = async (file: File) => {
     try {
       // Create object URL for the PDF
       const url = URL.createObjectURL(file);
+      
+      // Store the original filename (without extension)
+      const filename = file.name.replace(/\.pdf$/i, '');
+      setFilename(filename);
+      
       setURL(url);
 
       // Extract and store metadata
       const metadata = await extractPDFMetadata(file);
       setMetadata({
-        title: metadata.title,
+        title: metadata.title || filename,
         author: metadata.author,
         pageCount: metadata.pageCount,
       });

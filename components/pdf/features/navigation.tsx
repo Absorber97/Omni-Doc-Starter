@@ -102,6 +102,8 @@ export function Navigation({ numPages, currentPage, onPageChange, url, onPathCha
     <div className="space-y-6">
       <div>
         <h3 className="font-medium mb-4">Table of Contents</h3>
+
+        
         <ScrollArea className="h-[200px]">
           {outline.length > 0 ? (
             <div className="space-y-2">

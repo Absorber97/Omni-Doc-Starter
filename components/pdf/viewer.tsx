@@ -8,6 +8,7 @@ import { pdfViewerConfig } from '@/config/pdf-viewer';
 import { appConfig } from '@/config/app';
 import { Sidebar } from './features/sidebar';
 import { useInView } from 'react-intersection-observer';
+import { PageControls } from './features/page-controls';
 
 // Initialize worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
@@ -141,6 +142,18 @@ export function PDFViewer({ url }: PDFViewerProps) {
 
       {/* Main viewer container with overflow control */}
       <div className="flex-1 relative overflow-hidden">
+        <PageControls
+          currentPage={currentPage}
+          numPages={numPages}
+          scale={scale}
+          onPageChange={(page) => {
+            const element = document.getElementById(`page-${page}`);
+            element?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          onScaleChange={handleScaleChange}
+          url={url}
+        />
+        
         <motion.div 
           ref={containerRef}
           className={`absolute inset-0 ${pdfViewerConfig.ui.layout.viewer.background} ${pdfViewerConfig.ui.layout.viewer.pattern} overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-primary/20 hover:scrollbar-thumb-primary/40 scrollbar-track-transparent`}

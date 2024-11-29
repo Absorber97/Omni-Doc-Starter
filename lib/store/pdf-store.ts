@@ -1,21 +1,23 @@
 import { create } from 'zustand';
 
-interface PDFState {
+interface PDFStore {
   url: string | null;
+  filename: string;
   metadata: {
     title: string;
-    pageCount: number;
     author: string;
+    pageCount: number;
   } | null;
   setURL: (url: string) => void;
-  setMetadata: (metadata: PDFState['metadata']) => void;
-  reset: () => void;
+  setFilename: (filename: string) => void;
+  setMetadata: (metadata: { title: string; author: string; pageCount: number }) => void;
 }
 
-export const usePDFStore = create<PDFState>((set) => ({
+export const usePDFStore = create<PDFStore>((set) => ({
   url: null,
+  filename: 'PDF Document',
   metadata: null,
   setURL: (url) => set({ url }),
+  setFilename: (filename) => set({ filename }),
   setMetadata: (metadata) => set({ metadata }),
-  reset: () => set({ url: null, metadata: null }),
 })); 
