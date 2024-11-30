@@ -19,6 +19,7 @@ export interface Concept {
     sourceContext: string;
     tags: string[];
     emoji: string;
+    category: string;
   };
 }
 
@@ -30,7 +31,7 @@ interface ConceptsState {
   isGenerating: boolean;
   error: string | null;
   generationMode: 'all-pages' | 'current-page';
-  generatedPages: number[];
+  generatedPages: Set<number>;
   
   // Actions
   setDepthLevel: (level: DepthLevel) => void;
@@ -39,8 +40,10 @@ interface ConceptsState {
   highlightConcept: (id: string | null) => void;
   selectConcept: (id: string | null) => void;
   getConceptsByPage: (pageNumber: number) => Concept[];
+  getConceptsByDepth: (depthLevel: DepthLevel) => Concept[];
   getConceptById: (id: string) => Concept | undefined;
   markPageAsGenerated: (pageNumber: number) => void;
+  isPageGenerated: (pageNumber: number) => boolean;
   setIsGenerating: (isGenerating: boolean) => void;
   reset: () => void;
 }
@@ -53,7 +56,7 @@ const initialState = {
   isGenerating: false,
   error: null,
   generationMode: 'all-pages' as const,
-  generatedPages: [],
+  generatedPages: new Set<number>(),
 };
 
 export const useConceptsStore = create<ConceptsState>()(
@@ -67,8 +70,16 @@ export const useConceptsStore = create<ConceptsState>()(
       setGenerationMode: (mode) => 
         set({ generationMode: mode }),
 
-      addConcepts: (concepts) => 
-        set({ concepts: [...get().concepts, ...concepts] }),
+      addConcepts: (newConcepts) => 
+        set(state => {
+          // Remove any existing concepts for the same page and depth level
+          const filteredConcepts = state.concepts.filter(c => 
+            !newConcepts.some(nc => 
+              nc.pageNumber === c.pageNumber && nc.depthLevel === c.depthLevel
+            )
+          );
+          return { concepts: [...filteredConcepts, ...newConcepts] };
+        }),
 
       highlightConcept: (id) => 
         set({ highlightedConceptId: id }),
@@ -79,13 +90,19 @@ export const useConceptsStore = create<ConceptsState>()(
       getConceptsByPage: (pageNumber) => 
         get().concepts.filter(c => c.pageNumber === pageNumber),
 
+      getConceptsByDepth: (depthLevel) =>
+        get().concepts.filter(c => c.depthLevel === depthLevel),
+
       getConceptById: (id) => 
         get().concepts.find(c => c.id === id),
 
       markPageAsGenerated: (pageNumber) =>
         set(state => ({
-          generatedPages: [...state.generatedPages, pageNumber]
+          generatedPages: new Set([...state.generatedPages, pageNumber])
         })),
+
+      isPageGenerated: (pageNumber) =>
+        get().generatedPages.has(pageNumber),
 
       setIsGenerating: (isGenerating) =>
         set({ isGenerating }),
@@ -95,6 +112,15 @@ export const useConceptsStore = create<ConceptsState>()(
     {
       name: 'concepts-storage',
       version: 2,
+      partialize: (state) => ({
+        ...state,
+        generatedPages: Array.from(state.generatedPages)
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.generatedPages = new Set(state.generatedPages);
+        }
+      }
     }
   )
 );

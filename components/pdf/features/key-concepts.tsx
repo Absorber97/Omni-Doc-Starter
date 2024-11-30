@@ -48,7 +48,7 @@ export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps
 
   // Process document and generate concepts
   useEffect(() => {
-    if (!url || !currentPage) return;
+    if (!url) return;
 
     const processAndGenerate = async () => {
       try {
@@ -56,36 +56,51 @@ export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps
         if (!currentDocument || currentDocument.url !== url) {
           console.log('Starting document processing...');
           const doc = await processDocument(url, 'document.pdf');
+          if (!doc || !doc.pages?.length) {
+            throw new Error('Document processing failed or document is empty');
+          }
           console.log('Document processing completed with doc:', doc);
         }
 
-        // Check if we need to generate concepts
-        if (generatedPages.includes(currentPage)) {
-          console.log('Page already has concepts:', currentPage);
-          return;
-        }
+        // Generate concepts for all pages if not already generated
+        if (!isGenerating && processor && currentDocument?.pages) {
+          // Check if we already have concepts for this depth level
+          const existingConcepts = currentDocument.pages.every(page => 
+            getConceptsByPage(page.pageNumber).some(c => c.depthLevel === currentDepthLevel)
+          );
 
-        // Generate concepts
-        if (!isGenerating && processor) {
-          console.log('Starting concept generation for page:', currentPage, 'with depth:', currentDepthLevel);
+          if (existingConcepts) {
+            console.log('All pages already have concepts for depth level:', currentDepthLevel);
+            return;
+          }
+
+          console.log('Starting concept generation for all pages with depth:', currentDepthLevel);
           setIsGenerating(true);
           
           try {
-            const existingConcepts = getConceptsByPage(currentPage);
-            if (existingConcepts.length > 0) {
-              console.log('Found existing concepts for page:', currentPage);
-              return;
-            }
-
-            const pageConcepts = await processor.generateConcepts(currentPage, currentDepthLevel);
-            console.log('Generated new concepts:', pageConcepts);
+            // Generate concepts for all pages at once
+            const allConcepts = await processor.generateConcepts(-1, currentDepthLevel);
+            console.log('Generated concepts for all pages:', allConcepts);
             
-            if (pageConcepts && pageConcepts.length > 0) {
-              addConcepts(pageConcepts);
-              markPageAsGenerated(currentPage);
+            if (allConcepts && allConcepts.length > 0) {
+              // Group concepts by page
+              const conceptsByPage = allConcepts.reduce((acc, concept) => {
+                const pageNum = concept.pageNumber;
+                if (!acc[pageNum]) acc[pageNum] = [];
+                acc[pageNum].push(concept);
+                return acc;
+              }, {} as Record<number, typeof allConcepts>);
+
+              // Add concepts and mark pages as generated
+              Object.entries(conceptsByPage).forEach(([pageNum, concepts]) => {
+                addConcepts(concepts);
+                markPageAsGenerated(Number(pageNum));
+              });
+
+              console.log('Successfully added concepts for all pages');
             } else {
               console.warn('No concepts were generated');
-              setError('No concepts could be generated for this page');
+              setError('No concepts could be generated for this document');
             }
           } catch (err) {
             console.error('Concept generation error:', err);
@@ -102,7 +117,7 @@ export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps
     };
 
     processAndGenerate();
-  }, [url, currentPage, currentDocument, processor, currentDepthLevel]);
+  }, [url, currentDocument, processor, currentDepthLevel, processDocument, addConcepts, markPageAsGenerated, getConceptsByPage]);
 
   // Add error display
   if (error) {

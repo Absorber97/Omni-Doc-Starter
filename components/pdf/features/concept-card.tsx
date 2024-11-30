@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { type Concept } from '@/lib/store/concepts-store';
 import { 
   getImportanceLevel, 
-  getImportanceColor,
   importanceLevelConfig,
   type ImportanceLevel 
 } from '@/lib/utils/concepts';
@@ -21,9 +20,22 @@ interface ConceptCardProps {
 export function ConceptCard({ concept, onSelect }: ConceptCardProps) {
   const importance = concept.metadata?.importance || 0;
   const importanceLevel = getImportanceLevel(importance);
-  const importanceColor = getImportanceColor(importance);
+  const config = importanceLevelConfig[importanceLevel];
   const tags = concept.metadata?.tags || [];
   const emoji = concept.metadata?.emoji || '💡';
+
+  // Priority badge colors based on importance level
+  const priorityColors = {
+    high: 'border-red-500 bg-red-500/10',
+    medium: 'border-yellow-500 bg-yellow-500/10',
+    low: 'border-green-500 bg-green-500/10'
+  };
+
+  const dotColors = {
+    high: 'bg-red-500',
+    medium: 'bg-yellow-500',
+    low: 'bg-green-500'
+  };
 
   return (
     <motion.div
@@ -53,14 +65,14 @@ export function ConceptCard({ concept, onSelect }: ConceptCardProps) {
             variant="outline" 
             className={cn(
               "flex items-center gap-2 px-3 py-1 border-2",
-              `border-[${importanceColor}]/50`
+              priorityColors[importanceLevel]
             )}
           >
             <div className={cn(
               "w-2 h-2 rounded-full",
-              `bg-[${importanceColor}]`
+              dotColors[importanceLevel]
             )} />
-            {importanceLevelConfig[importanceLevel].label}
+            {config.label}
           </Badge>
 
           {/* Page Badge */}
