@@ -14,11 +14,12 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
-import { Concepts } from './concepts';
+import { KeyConcepts } from './key-concepts';
 import { Summary } from './summary';
 import { Flashcards } from './flashcards';
 import { Chat } from './chat';
 import { cn } from '@/lib/utils';
+import { ErrorBoundary } from './error-boundary';
 
 interface AIFeaturesProps {
   url: string;
@@ -48,7 +49,7 @@ export function AIFeatures({ url, currentPage, onPathChange }: AIFeaturesProps) 
       icon: Lightbulb,
       label: 'Key Concepts',
       description: 'Extract main ideas and concepts',
-      component: Concepts,
+      component: KeyConcepts,
     },
     {
       id: 'summary',
@@ -107,15 +108,17 @@ export function AIFeatures({ url, currentPage, onPathChange }: AIFeaturesProps) 
 
     const FeatureComponent = feature.component;
     return (
-      <FeatureComponent
-        url={url}
-        currentPage={currentPage}
-        isLoading={false}
-        onBack={() => {
-          setSelectedFeature(null);
-          onPathChange(['ai']);
-        }}
-      />
+      <ErrorBoundary>
+        <FeatureComponent
+          url={url}
+          currentPage={currentPage}
+          isLoading={false}
+          onBack={() => {
+            setSelectedFeature(null);
+            onPathChange(['ai']);
+          }}
+        />
+      </ErrorBoundary>
     );
   };
 
