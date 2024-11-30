@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, type Variants } from 'framer-motion';
 import { ChevronRight, BookOpen, Hash, FileText } from 'lucide-react';
+import { useSynchronizedNavigation } from '@/lib/hooks/use-synchronized-navigation';
+import { useTOCStore } from '@/lib/store/toc-store';
 import {
   Tooltip,
   TooltipContent,
@@ -10,9 +12,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { appConfig } from '@/config/app';
 import { TOCItem } from '@/lib/types/pdf';
-import { useSynchronizedNavigation } from '@/lib/hooks/use-synchronized-navigation';
 
 interface TableOfContentsProps {
   items: TOCItem[];
@@ -125,34 +125,46 @@ export function TableOfContents({ items }: TableOfContentsProps) {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const { 
+    expandedItems, 
+    setExpandedItems, 
+    setItems,
+    toggleItem: toggleStoredItem,
+    isItemExpanded,
+    isGenerated,
+    reset
+  } = useTOCStore();
 
+  // Reset store when component unmounts
   useEffect(() => {
-    setIsLoading(false);
-    if (items.length > 0) {
-      const allItemTitles = new Set<string>();
+    return () => {
+      reset();
+    };
+  }, [reset]);
+
+  // Initialize TOC items and expanded state
+  useEffect(() => {
+    if (items.length > 0 && !isGenerated) {
+      setIsLoading(true);
+      const allItemTitles: string[] = [];
+      
       const collectTitles = (items: TOCItem[]) => {
         items.forEach(item => {
-          allItemTitles.add(item.title);
+          allItemTitles.push(item.title);
           if (item.children) {
             collectTitles(item.children);
           }
         });
       };
+      
       collectTitles(items);
+      setItems(items);
       setExpandedItems(allItemTitles);
-    }
-  }, [items]);
-
-  const toggleItem = (title: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (expandedItems.has(title)) {
-      newExpanded.delete(title);
+      setIsLoading(false);
     } else {
-      newExpanded.add(title);
+      setIsLoading(false);
     }
-    setExpandedItems(newExpanded);
-  };
+  }, [items, setItems, setExpandedItems, isGenerated]);
 
   const onItemClick = (pageNumber: number) => {
     handlePageChange(pageNumber);
@@ -160,7 +172,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
 
   const renderItem = (item: TOCItem, index: number) => {
     const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedItems.has(item.title);
+    const isExpanded = isItemExpanded(item.title);
     const isCurrentPage = item.pageNumber === currentPage;
     const truncatedTitle = truncateHelpers.smartTruncate(item);
 
@@ -185,7 +197,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
         >
           {hasChildren ? (
             <button
-              onClick={() => toggleItem(item.title)}
+              onClick={() => toggleStoredItem(item.title)}
               className="p-0.5 hover:bg-muted rounded"
             >
               <ChevronRight 
@@ -199,7 +211,10 @@ export function TableOfContents({ items }: TableOfContentsProps) {
             <span className="w-5" />
           )}
           
-          <div className="flex items-center gap-2 flex-1 min-w-0 max-w-[250px]" onClick={() => onItemClick(item.pageNumber)}>
+          <div 
+            className="flex items-center gap-2 flex-1 min-w-0 max-w-[250px]" 
+            onClick={() => onItemClick(item.pageNumber)}
+          >
             {item.level === 0 ? (
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
             ) : (
@@ -263,7 +278,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="text-sm mt-4">Generating table of contents...</p>
+          <p className="text-sm mt-4">Loading table of contents...</p>
         </div>
       ) : items && items.length > 0 ? (
         items.map((item, index) => renderItem(item, index))
@@ -272,9 +287,6 @@ export function TableOfContents({ items }: TableOfContentsProps) {
           <BookOpen className="h-8 w-8 mb-2 animate-pulse" />
           <p className="text-sm font-medium">No table of contents available</p>
           <p className="text-xs mt-1">This document doesn't contain any headings</p>
-          <p className="text-xs mt-4 max-w-[240px] text-center opacity-60">
-            Try using the thumbnails or page controls to navigate through the document
-          </p>
         </div>
       )}
     </div>

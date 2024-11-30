@@ -23,6 +23,8 @@ import {
 import { pdfViewerConfig } from '@/config/pdf-viewer';
 import { Navigation } from './navigation';
 import { AIFeatures } from './ai-features';
+import { useTOCStore } from '@/lib/store/toc-store';
+import { TableOfContents } from './table-of-contents';
 
 interface SidebarProps {
   numPages: number;
@@ -44,6 +46,7 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<'navigation' | 'ai'>('navigation');
   const [activePath, setActivePath] = useState<string[]>([]);
+  const { items: tocItems } = useTOCStore();
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
