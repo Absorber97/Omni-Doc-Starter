@@ -242,36 +242,60 @@ export class DocumentProcessor {
         throw new Error('Page appears to be empty');
       }
 
-      console.log('[DocumentProcessor] Generating concepts for page:', pageNumber);
-      console.log('[DocumentProcessor] Page content:', pageContent.substring(0, 100) + '...');
+      const depthConfig = {
+        1: { count: 3, description: 'most essential', priorityRange: [0.7, 1.0] },
+        2: { count: 5, description: 'important', priorityRange: [0.4, 0.9] },
+        3: { count: 8, description: 'comprehensive', priorityRange: [0.2, 0.8] },
+      } as const;
 
-      // Use OpenAI to generate concepts
       const response = await this.openai.chat.completions.create({
         model: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4-turbo-preview',
         messages: [
           {
             role: 'system',
-            content: `You are an AI assistant tasked with extracting key concepts from text.
-              For depth level ${depthLevel}:
-              Level 1 (Basic): Extract 3-5 main concepts
-              Level 2 (Detailed): Extract 5-8 important concepts
-              Level 3 (Complete): Extract 8-12 comprehensive concepts
-              
-              Format your response as a numbered list, with each concept as a clear, concise statement.
-              Example:
-              1. First concept
-              2. Second concept
-              3. Third concept`
+            content: `You are an AI assistant that extracts key concepts from educational content.
+              Your task is to identify exactly ${depthConfig[depthLevel].count} ${depthConfig[depthLevel].description} concepts from the provided text.
+
+              For each concept:
+              1. Title: Create a short, clear title (max 50 characters) that summarizes the concept
+              2. Content: Write a complete, self-contained explanation (2-3 sentences)
+              3. Tags: Assign exactly 3 relevant, specific tags
+              4. Emoji: Choose a single most relevant emoji
+              5. Priority: Assign importance score between ${depthConfig[depthLevel].priorityRange[0]} and ${depthConfig[depthLevel].priorityRange[1]}
+                 - Higher scores (${depthConfig[depthLevel].priorityRange[1]}) for fundamental concepts
+                 - Lower scores (${depthConfig[depthLevel].priorityRange[0]}) for supplementary information
+                 - Distribute scores evenly across the range
+
+              Format your response as JSON:
+              {
+                "concepts": [
+                  {
+                    "title": "Concise concept title",
+                    "content": "Complete explanation of the concept that stands alone and provides clear context.",
+                    "tags": ["specific", "relevant", "tags"],
+                    "emoji": "",
+                    "importance": 0.85
+                  }
+                ]
+              }
+
+              Guidelines:
+              - Each concept must be completely unique
+              - Title should be concise, content should be comprehensive
+              - Content must be self-contained, not a continuation of the title
+              - Use specific, non-overlapping tags
+              - Choose distinct emojis for each concept
+              - Distribute priority scores evenly within the specified range
+              - Return exactly ${depthConfig[depthLevel].count} concepts`
           },
           {
             role: 'user',
-            content: pageContent
+            content: `Extract exactly ${depthConfig[depthLevel].count} key concepts from this text:\n\n${pageContent}`
           }
         ],
-        temperature: 0.7,
-        max_tokens: 1000,
-        presence_penalty: 0.2,
-        frequency_penalty: 0.3
+        temperature: 0.2,
+        max_tokens: 2000,
+        response_format: { type: "json_object" }
       });
 
       const content = response.choices[0]?.message?.content;
@@ -280,26 +304,48 @@ export class DocumentProcessor {
         throw new Error('No concepts generated from AI');
       }
 
-      console.log('[DocumentProcessor] Raw AI response:', content);
+      // Parse and validate the JSON response
+      const parsedResponse = JSON.parse(content);
+      if (!parsedResponse.concepts || !Array.isArray(parsedResponse.concepts)) {
+        throw new Error('Invalid response format from AI');
+      }
 
-      const concepts = content
-        .split('\n')
-        .filter(line => line.trim().length > 0 && /^\d+\./.test(line)) // Only keep numbered lines
-        .map(concept => ({
+      // Ensure we have exactly the number of concepts we asked for
+      if (parsedResponse.concepts.length !== depthConfig[depthLevel].count) {
+        console.warn(`[DocumentProcessor] Expected ${depthConfig[depthLevel].count} concepts, got ${parsedResponse.concepts.length}`);
+      }
+
+      // Find accurate page numbers using vector search
+      const concepts = await Promise.all(parsedResponse.concepts.map(async concept => {
+        // Generate embedding for the concept
+        const embedding = await this.openai.embeddings.create({
+          model: "text-embedding-3-small",
+          input: concept.content
+        });
+
+        // Find most similar page
+        const mostSimilarPage = await this.findMostSimilarPage(
+          new Float32Array(embedding.data[0].embedding)
+        );
+
+        return {
           id: crypto.randomUUID(),
-          text: concept.replace(/^\d+\.\s*/, '').trim(), // Remove leading numbers
+          text: concept.title.trim(),
           depthLevel,
-          pageNumber,
+          pageNumber: mostSimilarPage?.pageNumber || pageNumber,
           location: {
-            pageNumber,
-            textSnippet: pageContent.substring(0, 100) + '...'
+            pageNumber: mostSimilarPage?.pageNumber || pageNumber,
+            textSnippet: concept.content.trim()
           },
           metadata: {
             confidence: 0.9,
-            importance: 0.8,
-            sourceContext: pageContent
+            importance: concept.importance,
+            sourceContext: concept.content,
+            tags: concept.tags.slice(0, 3),
+            emoji: concept.emoji
           }
-        }));
+        };
+      }));
 
       console.log('[DocumentProcessor] Generated concepts:', concepts);
       return concepts;
@@ -308,5 +354,21 @@ export class DocumentProcessor {
       console.error('[DocumentProcessor] Error generating concepts:', error);
       throw error;
     }
+  }
+
+  // Helper method to find the most similar page
+  private async findMostSimilarPage(queryVector: Float32Array): Promise<{ pageNumber: number; similarity: number } | null> {
+    let bestMatch: { pageNumber: number; similarity: number } | null = null;
+
+    this.vectorStore.forEach((vector, vectorId) => {
+      const similarity = this.cosineSimilarity(queryVector, vector);
+      const pageNumber = parseInt(vectorId.split('-')[1]);
+
+      if (!bestMatch || similarity > bestMatch.similarity) {
+        bestMatch = { pageNumber, similarity };
+      }
+    });
+
+    return bestMatch;
   }
 } 

@@ -13,10 +13,12 @@ export interface Concept {
     pageNumber: number;
     textSnippet: string;
   };
-  metadata?: {
+  metadata: {
     confidence: number;
-    importance: number; // 0-1 score
+    importance: number;
     sourceContext: string;
+    tags: string[];
+    emoji: string;
   };
 }
 

@@ -11,10 +11,10 @@ import { ConceptCard } from './concept-card';
 interface KeyConceptsProps {
   url: string;
   currentPage: number;
-  onBack: () => void;
+  onPageChange: (pageNumber: number) => void;
 }
 
-export function KeyConcepts({ url, currentPage }: KeyConceptsProps) {
+export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps) {
   const [error, setError] = useState<string | null>(null);
   
   const {
@@ -61,7 +61,7 @@ export function KeyConcepts({ url, currentPage }: KeyConceptsProps) {
 
         // Check if we need to generate concepts
         if (generatedPages.includes(currentPage)) {
-          console.log('Page already has concepts, skipping generation');
+          console.log('Page already has concepts:', currentPage);
           return;
         }
 
@@ -71,8 +71,14 @@ export function KeyConcepts({ url, currentPage }: KeyConceptsProps) {
           setIsGenerating(true);
           
           try {
+            const existingConcepts = getConceptsByPage(currentPage);
+            if (existingConcepts.length > 0) {
+              console.log('Found existing concepts for page:', currentPage);
+              return;
+            }
+
             const pageConcepts = await processor.generateConcepts(currentPage, currentDepthLevel);
-            console.log('Generated concepts:', pageConcepts);
+            console.log('Generated new concepts:', pageConcepts);
             
             if (pageConcepts && pageConcepts.length > 0) {
               addConcepts(pageConcepts);
@@ -87,13 +93,6 @@ export function KeyConcepts({ url, currentPage }: KeyConceptsProps) {
           } finally {
             setIsGenerating(false);
           }
-        } else {
-          console.log('Skipping concept generation:', { 
-            isGenerating, 
-            hasProcessor: !!processor,
-            currentPage,
-            currentDepthLevel
-          });
         }
       } catch (err) {
         console.error('Document processing error:', err);
@@ -131,21 +130,32 @@ export function KeyConcepts({ url, currentPage }: KeyConceptsProps) {
   const currentConcepts = getConceptsByPage(currentPage);
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      <main className="flex-1 overflow-y-auto p-4">
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto p-6">
         <AnimatePresence mode="sync">
           {currentConcepts.length > 0 ? (
-            currentConcepts.map((concept) => (
-              <ConceptCard key={concept.id} concept={concept} />
-            ))
+            <div className="space-y-6">
+              {currentConcepts.map((concept) => (
+                <ConceptCard 
+                  key={concept.id} 
+                  concept={concept}
+                  onSelect={onPageChange}
+                />
+              ))}
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center justify-center h-full text-muted-foreground"
+            >
               <Sparkles className="h-12 w-12 mb-4" />
               <p>No concepts generated yet</p>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
-      </main>
+      </div>
     </div>
   );
 }

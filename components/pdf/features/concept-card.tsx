@@ -1,74 +1,98 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Brain, Star } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { ScrollText, Tag } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { type Concept } from '@/lib/store/concepts-store';
+import { 
+  getImportanceLevel, 
+  getImportanceColor,
+  importanceLevelConfig,
+  type ImportanceLevel 
+} from '@/lib/utils/concepts';
 
 interface ConceptCardProps {
   concept: Concept;
+  onSelect?: (pageNumber: number) => void;
 }
 
-export function ConceptCard({ concept }: ConceptCardProps) {
+export function ConceptCard({ concept, onSelect }: ConceptCardProps) {
   const importance = concept.metadata?.importance || 0;
-  const depthEmoji = getDepthEmoji(concept.depthLevel);
-  
+  const importanceLevel = getImportanceLevel(importance);
+  const importanceColor = getImportanceColor(importance);
+  const tags = concept.metadata?.tags || [];
+  const emoji = concept.metadata?.emoji || '💡';
+
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.2 }}
+      className="mb-8"
     >
-      <Card className="p-4 hover:shadow-md transition-shadow">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 mt-1">
-            {depthEmoji}
-          </div>
-          
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium leading-none">
-                {toSentenceCase(concept.text)}
-              </h3>
-              
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Star
-                  className="h-3.5 w-3.5"
-                  fill={importance > 0.7 ? "currentColor" : "none"}
-                />
-                <span className="text-xs">
-                  {Math.round(importance * 100)}%
-                </span>
-              </div>
-            </div>
-
-            {concept.location.textSnippet && (
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {concept.location.textSnippet}
-              </p>
-            )}
-          </div>
+      <Card 
+        className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
+        onClick={() => onSelect?.(concept.pageNumber)}
+      >
+        {/* Title Section */}
+        <div className="flex items-start gap-4 mb-6">
+          <span className="text-3xl" role="img" aria-label="concept emoji">
+            {emoji}
+          </span>
+          <h3 className="text-2xl font-semibold flex-1 leading-tight">
+            {concept.text}
+          </h3>
         </div>
+
+        {/* Badges Section */}
+        <div className="flex flex-wrap gap-3 mb-6">
+          {/* Priority Badge */}
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "flex items-center gap-2 px-3 py-1 border-2",
+              `border-[${importanceColor}]/50`
+            )}
+          >
+            <div className={cn(
+              "w-2 h-2 rounded-full",
+              `bg-[${importanceColor}]`
+            )} />
+            {importanceLevelConfig[importanceLevel].label}
+          </Badge>
+
+          {/* Page Badge */}
+          <Badge 
+            variant="secondary" 
+            className="flex items-center gap-2 px-3 py-1"
+          >
+            <ScrollText className="w-3.5 h-3.5" />
+            Page {concept.pageNumber}
+          </Badge>
+        </div>
+
+        {/* Content Section */}
+        <p className="text-muted-foreground mb-6 text-base leading-relaxed">
+          {concept.location.textSnippet}
+        </p>
+
+        {/* Tags Section */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag, index) => (
+              <span 
+                key={index}
+                className="text-xs text-muted-foreground bg-secondary/50 px-2.5 py-1 rounded-md flex items-center gap-1.5"
+              >
+                <Tag className="w-3 h-3" />
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </Card>
     </motion.div>
   );
-}
-
-function getDepthEmoji(level: number) {
-  switch (level) {
-    case 1:
-      return "🎯";
-    case 2:
-      return "💡";
-    case 3:
-      return "🔍";
-    default:
-      return "📝";
-  }
-}
-
-function toSentenceCase(text: string) {
-  return text.charAt(0).toUpperCase() + text.slice(1);
 } 
