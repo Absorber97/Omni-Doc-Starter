@@ -12,11 +12,10 @@ import {
 import { cn } from '@/lib/utils';
 import { appConfig } from '@/config/app';
 import { TOCItem } from '@/lib/types/pdf';
+import { useSynchronizedNavigation } from '@/lib/hooks/use-synchronized-navigation';
 
 interface TableOfContentsProps {
   items: TOCItem[];
-  currentPage: number;
-  onPageChange: (page: number) => void;
 }
 
 // Animation variants
@@ -117,7 +116,14 @@ const truncateHelpers = {
   }
 };
 
-export function TableOfContents({ items, currentPage, onPageChange }: TableOfContentsProps) {
+export function TableOfContents({ items }: TableOfContentsProps) {
+  const { 
+    currentPage, 
+    handlePageChange 
+  } = useSynchronizedNavigation({
+    source: 'toc'
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
@@ -146,6 +152,10 @@ export function TableOfContents({ items, currentPage, onPageChange }: TableOfCon
       newExpanded.add(title);
     }
     setExpandedItems(newExpanded);
+  };
+
+  const onItemClick = (pageNumber: number) => {
+    handlePageChange(pageNumber);
   };
 
   const renderItem = (item: TOCItem, index: number) => {
@@ -189,7 +199,7 @@ export function TableOfContents({ items, currentPage, onPageChange }: TableOfCon
             <span className="w-5" />
           )}
           
-          <div className="flex items-center gap-2 flex-1 min-w-0 max-w-[250px]" onClick={() => onPageChange(item.pageNumber)}>
+          <div className="flex items-center gap-2 flex-1 min-w-0 max-w-[250px]" onClick={() => onItemClick(item.pageNumber)}>
             {item.level === 0 ? (
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
             ) : (

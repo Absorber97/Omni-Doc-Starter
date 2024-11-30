@@ -10,6 +10,7 @@ import { Sidebar } from './features/sidebar';
 import { useInView } from 'react-intersection-observer';
 import { PageControls } from './features/page-controls';
 import { cn } from '@/lib/utils';
+import { useSynchronizedNavigation } from '@/lib/hooks/use-synchronized-navigation';
 
 // Initialize worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
@@ -20,7 +21,6 @@ interface PDFViewerProps {
 
 export function PDFViewer({ url }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
   const [scale, setScale] = useState<number>(1); // Start at 100% zoom
   const [isClient, setIsClient] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +29,16 @@ export function PDFViewer({ url }: PDFViewerProps) {
   const observerRefs = useRef<{ [key: number]: IntersectionObserver }>({});
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set([1]));
   const [pdfDimensions, setPdfDimensions] = useState({ width: 595, height: 842 }); // Default A4 size
+
+  const { 
+    currentPage,
+    activeSource,
+    handlePageChange,
+    isAutoScrolling 
+  } = useSynchronizedNavigation({
+    source: 'viewer',
+    scrollBehavior: 'auto'
+  });
 
   // Handle PDF load success and get actual dimensions
   async function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
@@ -95,20 +105,22 @@ export function PDFViewer({ url }: PDFViewerProps) {
 
   // Handle page visibility changes
   const handlePageVisibilityChange = useCallback((page: number, isVisible: boolean) => {
-    setVisiblePages(prev => {
-      const newSet = new Set(prev);
-      if (isVisible) {
-        newSet.add(page);
-      } else {
-        newSet.delete(page);
-      }
-      if (newSet.size > 0) {
-        const lowestVisiblePage = Math.min(...Array.from(newSet));
-        setCurrentPage(lowestVisiblePage);
-      }
-      return newSet;
-    });
-  }, []);
+    if (!isAutoScrolling) {
+      setVisiblePages(prev => {
+        const newSet = new Set(prev);
+        if (isVisible) {
+          newSet.add(page);
+        } else {
+          newSet.delete(page);
+        }
+        if (newSet.size > 0) {
+          const lowestVisiblePage = Math.min(...Array.from(newSet));
+          handlePageChange(lowestVisiblePage);
+        }
+        return newSet;
+      });
+    }
+  }, [handlePageChange, isAutoScrolling]);
 
   // Create intersection observer for page visibility
   const createPageObserver = useCallback((page: number) => {
