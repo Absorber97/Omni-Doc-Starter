@@ -1,98 +1,52 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Star, Lightbulb, Bookmark } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Concept, ConceptType } from '@/lib/store/concepts-store';
-import { pdfViewerConfig } from '@/config/pdf-viewer';
+import { Concept } from '@/types/pdf';
+
+const conceptTypeEmojis = {
+  'must-know': '🎯',
+  'good-to-know': '💡',
+  'optional': '📌'
+} as const;
 
 interface ConceptCardProps {
   concept: Concept;
-  isHighlighted: boolean;
-  isSelected: boolean;
-  onClick: () => void;
-  onHover: (hover: boolean) => void;
+  isHighlighted?: boolean;
 }
 
-const conceptConfig = pdfViewerConfig.features.ai.features.concepts.types;
-
-const conceptIcons: Record<ConceptType, typeof Star> = {
-  'must-know': Star,
-  'good-to-know': Lightbulb,
-  'optional': Bookmark,
-};
-
-export function ConceptCard({ 
-  concept, 
-  isHighlighted,
-  isSelected,
-  onClick, 
-  onHover 
-}: ConceptCardProps) {
-  const typeConfig = conceptConfig[concept.type];
-  const Icon = conceptIcons[concept.type];
+export function ConceptCard({ concept, isHighlighted }: ConceptCardProps) {
+  const { text, type, pageNumber } = concept;
 
   return (
     <motion.div
-      layoutId={concept.id}
-      onHoverStart={() => onHover(true)}
-      onHoverEnd={() => onHover(false)}
-      onClick={onClick}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      whileHover={{ scale: 1.02 }}
+      transition={{ duration: 0.2 }}
     >
-      <Card 
-        className={cn(
-          "p-3 cursor-pointer transition-all",
-          "hover:shadow-md hover:-translate-y-0.5",
-          isHighlighted && "ring-2 ring-primary",
-          isSelected && "bg-primary/5",
-          typeConfig.color
-        )}
-      >
-        <div className="flex items-start gap-2">
-          <Icon className="h-4 w-4 mt-1 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm leading-relaxed">{concept.text}</p>
-            
-            {/* Metadata section */}
-            <div className="mt-2 space-y-2">
-              {/* Keywords */}
-              {concept.metadata?.keywords && (
-                <div className="flex flex-wrap gap-1">
-                  {concept.metadata.keywords.map((keyword) => (
-                    <Badge 
-                      key={keyword}
-                      variant="secondary" 
-                      className="text-xs"
-                    >
-                      {keyword}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              
-              {/* Context preview */}
-              {concept.location?.textSnippet && (
-                <p className="text-xs text-muted-foreground line-clamp-2 italic">
-                  "{concept.location.textSnippet}"
-                </p>
-              )}
-
-              {/* Page indicator */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-xs">
-                  Page {concept.pageNumber}
-                </Badge>
-                {concept.metadata?.importance && (
-                  <span className="text-xs">
-                    Importance: {Math.round(concept.metadata.importance * 100)}%
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+      <Card className={cn(
+        "p-4 space-y-2 bg-card hover:shadow-md transition-all",
+        "border-l-4",
+        {
+          'border-l-primary': type === 'must-know',
+          'border-l-blue-400': type === 'good-to-know',
+          'border-l-gray-400': type === 'optional',
+          'ring-2 ring-primary ring-offset-2': isHighlighted
+        }
+      )}>
+        <div className="flex items-start justify-between">
+          <Badge variant="outline" className="text-xs">
+            {conceptTypeEmojis[type]} Page {pageNumber}
+          </Badge>
         </div>
+        
+        <p className="text-sm leading-relaxed">
+          {text.charAt(0).toUpperCase() + text.slice(1)}
+        </p>
       </Card>
     </motion.div>
   );
