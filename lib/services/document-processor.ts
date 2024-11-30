@@ -4,6 +4,7 @@ import { PDFDocument, PDFTextItem, TOCItem, PDFPageContent, PDFMetadata } from '
 import { PDFContentExtractor } from './pdf-content-extractor';
 import { ConceptGenerator } from './concept-generator';
 import { TOCProcessor } from './toc-processor';
+import { type DepthLevel } from '@/lib/store/concepts-store';
 
 interface ProcessingOptions {
   extractText?: boolean;
@@ -18,6 +19,7 @@ export class DocumentProcessor {
   private tocProcessor: TOCProcessor;
   private vectorStore: Map<string, Float32Array>;
   private documentCache: Map<string, PDFDocument>;
+  private currentDocument: PDFDocument | null = null;
   
   public conceptGenerator: ConceptGenerator;
 
@@ -91,6 +93,9 @@ export class DocumentProcessor {
         doc.vectorIds = await this.generateVectors(doc.pages);
       }
 
+      // Store the current document
+      this.currentDocument = doc;
+      
       // Cache the processed document
       this.documentCache.set(url, doc);
       
@@ -214,5 +219,94 @@ export class DocumentProcessor {
   clearCache() {
     this.documentCache.clear();
     this.vectorStore.clear();
+  }
+
+  async generateConcepts(pageNumber: number, depthLevel: DepthLevel) {
+    try {
+      console.log('[DocumentProcessor] Starting concept generation:', { pageNumber, depthLevel });
+      
+      if (!this.currentDocument) {
+        console.error('[DocumentProcessor] No document loaded');
+        throw new Error('No document loaded');
+      }
+
+      const page = this.currentDocument.pages[pageNumber - 1];
+      if (!page) {
+        console.error('[DocumentProcessor] Page not found:', pageNumber);
+        throw new Error('Page not found');
+      }
+
+      const pageContent = page.text;
+      if (!pageContent || pageContent.trim().length === 0) {
+        console.error('[DocumentProcessor] Page is empty:', pageNumber);
+        throw new Error('Page appears to be empty');
+      }
+
+      console.log('[DocumentProcessor] Generating concepts for page:', pageNumber);
+      console.log('[DocumentProcessor] Page content:', pageContent.substring(0, 100) + '...');
+
+      // Use OpenAI to generate concepts
+      const response = await this.openai.chat.completions.create({
+        model: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4-turbo-preview',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an AI assistant tasked with extracting key concepts from text.
+              For depth level ${depthLevel}:
+              Level 1 (Basic): Extract 3-5 main concepts
+              Level 2 (Detailed): Extract 5-8 important concepts
+              Level 3 (Complete): Extract 8-12 comprehensive concepts
+              
+              Format your response as a numbered list, with each concept as a clear, concise statement.
+              Example:
+              1. First concept
+              2. Second concept
+              3. Third concept`
+          },
+          {
+            role: 'user',
+            content: pageContent
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+        presence_penalty: 0.2,
+        frequency_penalty: 0.3
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        console.error('[DocumentProcessor] No content in AI response');
+        throw new Error('No concepts generated from AI');
+      }
+
+      console.log('[DocumentProcessor] Raw AI response:', content);
+
+      const concepts = content
+        .split('\n')
+        .filter(line => line.trim().length > 0 && /^\d+\./.test(line)) // Only keep numbered lines
+        .map(concept => ({
+          id: crypto.randomUUID(),
+          text: concept.replace(/^\d+\.\s*/, '').trim(), // Remove leading numbers
+          depthLevel,
+          pageNumber,
+          location: {
+            pageNumber,
+            textSnippet: pageContent.substring(0, 100) + '...'
+          },
+          metadata: {
+            confidence: 0.9,
+            importance: 0.8,
+            sourceContext: pageContent
+          }
+        }));
+
+      console.log('[DocumentProcessor] Generated concepts:', concepts);
+      return concepts;
+
+    } catch (error) {
+      console.error('[DocumentProcessor] Error generating concepts:', error);
+      throw error;
+    }
   }
 } 

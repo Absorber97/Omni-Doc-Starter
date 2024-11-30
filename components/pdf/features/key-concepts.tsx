@@ -28,7 +28,6 @@ export function KeyConcepts({ url, currentPage }: KeyConceptsProps) {
     concepts,
     currentDepthLevel,
     isGenerating,
-    generationMode,
     generatedPages,
     addConcepts,
     setIsGenerating,
@@ -36,136 +35,114 @@ export function KeyConcepts({ url, currentPage }: KeyConceptsProps) {
     getConceptsByPage
   } = useConceptsStore();
 
-  // Process document if not already processed
+  // Add initial state check
   useEffect(() => {
-    if (!url || currentDocument?.url === url) return;
+    // Reset isGenerating on mount
+    setIsGenerating(false);
+    
+    return () => {
+      // Cleanup on unmount
+      setIsGenerating(false);
+    };
+  }, []);
 
-    const process = async () => {
+  // Process document and generate concepts
+  useEffect(() => {
+    if (!url || !currentPage) return;
+
+    const processAndGenerate = async () => {
       try {
-        await processDocument(url, 'document.pdf');
+        // Process document if needed
+        if (!currentDocument || currentDocument.url !== url) {
+          console.log('Starting document processing...');
+          const doc = await processDocument(url, 'document.pdf');
+          console.log('Document processing completed with doc:', doc);
+        }
+
+        // Check if we need to generate concepts
+        if (generatedPages.includes(currentPage)) {
+          console.log('Page already has concepts, skipping generation');
+          return;
+        }
+
+        // Generate concepts
+        if (!isGenerating && processor) {
+          console.log('Starting concept generation for page:', currentPage, 'with depth:', currentDepthLevel);
+          setIsGenerating(true);
+          
+          try {
+            const pageConcepts = await processor.generateConcepts(currentPage, currentDepthLevel);
+            console.log('Generated concepts:', pageConcepts);
+            
+            if (pageConcepts && pageConcepts.length > 0) {
+              addConcepts(pageConcepts);
+              markPageAsGenerated(currentPage);
+            } else {
+              console.warn('No concepts were generated');
+              setError('No concepts could be generated for this page');
+            }
+          } catch (err) {
+            console.error('Concept generation error:', err);
+            setError(err instanceof Error ? err.message : 'Failed to generate concepts');
+          } finally {
+            setIsGenerating(false);
+          }
+        } else {
+          console.log('Skipping concept generation:', { 
+            isGenerating, 
+            hasProcessor: !!processor,
+            currentPage,
+            currentDepthLevel
+          });
+        }
       } catch (err) {
         console.error('Document processing error:', err);
         setError(err instanceof Error ? err.message : 'Failed to process document');
-      }
-    };
-
-    process();
-  }, [url, currentDocument, processDocument]);
-
-  // Generate concepts using processed document
-  useEffect(() => {
-    const generateConcepts = async () => {
-      if (!currentDocument || !url) {
-        return;
-      }
-
-      // Skip if already generated for current page
-      if (generationMode === 'current-page' && generatedPages.includes(currentPage)) {
-        return;
-      }
-
-      setIsGenerating(true);
-      setError(null);
-
-      try {
-        const pageContent = currentDocument.pages[currentPage - 1]?.text;
-        
-        if (!pageContent || pageContent.trim().length === 0) {
-          throw new Error('Page appears to be empty');
-        }
-
-        // Use the document processor's concept generator
-        const newConcepts = await processor.conceptGenerator.generateConcepts(
-          pageContent,
-          currentPage,
-          currentDepthLevel
-        );
-
-        if (newConcepts.length === 0) {
-          throw new Error('No concepts could be generated from this page');
-        }
-
-        addConcepts(newConcepts);
-        markPageAsGenerated(currentPage);
-        
-      } catch (error) {
-        console.error('Concept generation error:', error);
-        setError(error instanceof Error ? error.message : 'Failed to generate concepts');
-      } finally {
         setIsGenerating(false);
       }
     };
 
-    if (!isGenerating && !isProcessingDocument) {
-      generateConcepts();
-    }
-  }, [
-    url,
-    currentPage,
-    currentDepthLevel,
-    generationMode,
-    generatedPages,
-    currentDocument,
-    isProcessingDocument,
-    processor,
-    addConcepts,
-    markPageAsGenerated,
-    setIsGenerating
-  ]);
+    processAndGenerate();
+  }, [url, currentPage, currentDocument, processor, currentDepthLevel]);
+
+  // Add error display
+  if (error) {
+    return (
+      <div className="p-4 text-destructive">
+        <h3 className="font-medium mb-2">Error</h3>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  // Add loading state
+  if (isProcessingDocument || isGenerating) {
+    return (
+      <div className="p-4">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 bg-muted rounded w-3/4"></div>
+          <div className="h-4 bg-muted rounded w-1/2"></div>
+          <div className="h-4 bg-muted rounded w-2/3"></div>
+        </div>
+      </div>
+    );
+  }
 
   const currentConcepts = getConceptsByPage(currentPage);
-  const isLoading = isProcessingDocument || isGenerating;
 
   return (
     <div className="h-full flex flex-col gap-4">
       <main className="flex-1 overflow-y-auto p-4">
-        {error && (
-          <motion.div
-            key="error"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="p-4 mb-4 text-sm text-destructive bg-destructive/10 rounded-md"
-          >
-            {error}
-          </motion.div>
-        )}
-        
         <AnimatePresence mode="sync">
-          {isLoading ? (
-            <motion.div
-              key="loading"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-4"
-            >
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-20" />
-                </div>
-              ))}
-            </motion.div>
+          {currentConcepts.length > 0 ? (
+            currentConcepts.map((concept) => (
+              <ConceptCard key={concept.id} concept={concept} />
+            ))
           ) : (
-            <motion.div
-              key="content"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-4"
-            >
-              {currentConcepts.length > 0 ? (
-                currentConcepts.map((concept) => (
-                  <ConceptCard key={concept.id} concept={concept} />
-                ))
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <Sparkles className="h-12 w-12 mb-4" />
-                  <p>No concepts generated yet</p>
-                </div>
-              )}
-            </motion.div>
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <Sparkles className="h-12 w-12 mb-4" />
+              <p>No concepts generated yet</p>
+            </div>
           )}
         </AnimatePresence>
       </main>
