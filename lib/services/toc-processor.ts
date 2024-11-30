@@ -1,4 +1,4 @@
-import { TOCItem } from '@/lib/types/pdf';
+import { TOCItem, PDFPageContent } from '@/lib/types/pdf';
 import OpenAI from 'openai';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
 
@@ -334,5 +334,113 @@ export class TOCProcessor {
     const enhancedItems = await Promise.all(items.map(item => processItem(item)));
     console.log('AI enhancement completed for all items');
     return enhancedItems;
+  }
+
+  async generateFromContent(pages: PDFPageContent[]): Promise<TOCItem[]> {
+    if (!pages || pages.length === 0) return [];
+
+    const items: TOCItem[] = [];
+    let currentLevel = 0;
+
+    for (const page of pages) {
+      const lines = page.text.split('\n');
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!this.isValidHeading(trimmedLine)) continue;
+
+        // Determine heading level based on text characteristics
+        const level = this.determineHeadingLevel(trimmedLine);
+        
+        if (level >= 0) {
+          items.push({
+            title: trimmedLine,
+            pageNumber: page.pageNumber,
+            level,
+            metadata: {
+              fontSize: 16 - level * 2, // Decrease font size for deeper levels
+              isProcessed: true,
+              originalText: trimmedLine
+            }
+          });
+          currentLevel = Math.max(currentLevel, level);
+        }
+      }
+    }
+
+    return this.enhanceTableOfContents(items);
+  }
+
+  private isValidHeading(text: string): boolean {
+    if (!text || text.length < 3 || text.length > 200) return false;
+
+    // Ignore common non-heading patterns
+    const nonHeadingPatterns = [
+      /^page\s+\d+$/i,
+      /^\d+$/,
+      /^[a-z]\.$/i,
+      /^[\W\s]+$/,
+      /^figure\s+\d+/i,
+      /^table\s+\d+/i
+    ];
+
+    if (nonHeadingPatterns.some(pattern => pattern.test(text))) {
+      return false;
+    }
+
+    // Look for heading patterns
+    const headingPatterns = [
+      /^(?:chapter|section|\d+\.)\s+\w+/i,
+      /^[A-Z][^.!?]+$/,
+      /^(?:introduction|conclusion|summary|abstract|references|appendix)/i,
+      /^[IVX]+\.\s+\w+/,
+      /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,5}$/
+    ];
+
+    return headingPatterns.some(pattern => pattern.test(text));
+  }
+
+  private determineHeadingLevel(text: string): number {
+    // Chapter or main section headers
+    if (/^(?:chapter|\d+\.)\s+/i.test(text)) return 0;
+    
+    // Subsection headers
+    if (/^\d+\.\d+\s+/i.test(text)) return 1;
+    
+    // Sub-subsection headers
+    if (/^\d+\.\d+\.\d+\s+/i.test(text)) return 2;
+    
+    // Roman numeral headers
+    if (/^[IVX]+\.\s+/i.test(text)) return 1;
+    
+    // Common section headers
+    if (/^(?:introduction|conclusion|summary|abstract|references|appendix)/i.test(text)) return 0;
+    
+    // Default to deepest level for other potential headers
+    return 2;
+  }
+
+  private enhanceTableOfContents(items: TOCItem[]): TOCItem[] {
+    // Build hierarchy
+    const hierarchy: TOCItem[] = [];
+    const stack: TOCItem[] = [];
+
+    items.forEach(item => {
+      while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
+        stack.pop();
+      }
+
+      if (stack.length === 0) {
+        hierarchy.push(item);
+      } else {
+        const parent = stack[stack.length - 1];
+        if (!parent.children) parent.children = [];
+        parent.children.push(item);
+      }
+
+      stack.push(item);
+    });
+
+    return hierarchy;
   }
 } 

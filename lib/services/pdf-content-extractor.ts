@@ -26,6 +26,13 @@ export class PDFContentExtractor {
     await this.loadingPromise;
   }
 
+  async getPageCount(): Promise<number> {
+    if (!this.pdfDocument) {
+      throw new Error('[PDFExtractor] Document not loaded');
+    }
+    return this.pdfDocument.numPages;
+  }
+
   async getPageContent(pageNumber: number): Promise<string> {
     if (this.loadingPromise) {
       console.log('[PDFExtractor] Waiting for document to load');
@@ -52,5 +59,12 @@ export class PDFContentExtractor {
       console.error(`[PDFExtractor] Error extracting content from page ${pageNumber}:`, error);
       throw error;
     }
+  }
+
+  async getOutline(): Promise<any[]> {
+    if (!this.pdfDocument) {
+      throw new Error('[PDFExtractor] Document not loaded');
+    }
+    return this.pdfDocument.getOutline() || [];
   }
 }

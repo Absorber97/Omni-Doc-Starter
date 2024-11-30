@@ -1,14 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useConceptsStore } from '@/lib/store/concepts-store';
-import { useLogger } from '@/lib/hooks/use-logger';
-import { ConceptGenerator } from '@/lib/services/concept-generator';
-import { PDFContentExtractor } from '@/lib/services/pdf-content-extractor';
+import { useDocumentStore } from '@/lib/store/document-store';
 import { ConceptCard } from './concept-card';
 
 interface KeyConceptsProps {
@@ -17,12 +14,16 @@ interface KeyConceptsProps {
   onBack: () => void;
 }
 
-export function KeyConcepts({ url, currentPage, onBack }: KeyConceptsProps) {
-  const log = useLogger('KeyConcepts');
+export function KeyConcepts({ url, currentPage }: KeyConceptsProps) {
   const [error, setError] = useState<string | null>(null);
-  const contentExtractor = useRef(new PDFContentExtractor());
-  const conceptGenerator = useRef(new ConceptGenerator());
   
+  const {
+    currentDocument,
+    isProcessing: isProcessingDocument,
+    processDocument,
+    processor
+  } = useDocumentStore();
+
   const {
     concepts,
     currentDepthLevel,
@@ -35,33 +36,26 @@ export function KeyConcepts({ url, currentPage, onBack }: KeyConceptsProps) {
     getConceptsByPage
   } = useConceptsStore();
 
-  // Initialize PDF content extractor
+  // Process document if not already processed
   useEffect(() => {
-    const initializeExtractor = async () => {
-      if (!url) return;
+    if (!url || currentDocument?.url === url) return;
 
-      log.info('Initializing PDF extractor with URL:', url);
-      setIsGenerating(true);
-      
+    const process = async () => {
       try {
-        await contentExtractor.current.loadDocument(url);
-        log.info('PDF extractor initialized successfully');
+        await processDocument(url, 'document.pdf');
       } catch (err) {
-        log.error('Failed to initialize PDF extractor:', err);
-        setError('Failed to load document. Please try again.');
-      } finally {
-        setIsGenerating(false);
+        console.error('Document processing error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to process document');
       }
     };
 
-    initializeExtractor();
-  }, [url]);
+    process();
+  }, [url, currentDocument, processDocument]);
 
-  // Generate concepts
+  // Generate concepts using processed document
   useEffect(() => {
     const generateConcepts = async () => {
-      if (!url) {
-        log.error('No URL provided');
+      if (!currentDocument || !url) {
         return;
       }
 
@@ -74,53 +68,73 @@ export function KeyConcepts({ url, currentPage, onBack }: KeyConceptsProps) {
       setError(null);
 
       try {
-        const pageContent = await contentExtractor.current.getPageContent(currentPage);
+        const pageContent = currentDocument.pages[currentPage - 1]?.text;
         
-        if (pageContent.trim().length === 0) {
+        if (!pageContent || pageContent.trim().length === 0) {
           throw new Error('Page appears to be empty');
         }
 
-        const newConcepts = await conceptGenerator.current.generateConcepts(
+        // Use the document processor's concept generator
+        const newConcepts = await processor.conceptGenerator.generateConcepts(
           pageContent,
           currentPage,
           currentDepthLevel
         );
 
+        if (newConcepts.length === 0) {
+          throw new Error('No concepts could be generated from this page');
+        }
+
         addConcepts(newConcepts);
         markPageAsGenerated(currentPage);
         
       } catch (error) {
-        log.error('Error generating concepts:', error);
+        console.error('Concept generation error:', error);
         setError(error instanceof Error ? error.message : 'Failed to generate concepts');
       } finally {
         setIsGenerating(false);
       }
     };
 
-    if (!isGenerating) {
+    if (!isGenerating && !isProcessingDocument) {
       generateConcepts();
     }
-  }, [url, currentPage, currentDepthLevel, generationMode, generatedPages]);
+  }, [
+    url,
+    currentPage,
+    currentDepthLevel,
+    generationMode,
+    generatedPages,
+    currentDocument,
+    isProcessingDocument,
+    processor,
+    addConcepts,
+    markPageAsGenerated,
+    setIsGenerating
+  ]);
 
   const currentConcepts = getConceptsByPage(currentPage);
+  const isLoading = isProcessingDocument || isGenerating;
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <main className="flex-1 overflow-y-auto">
-        <AnimatePresence mode="wait">
-          {error && (
+      <main className="flex-1 overflow-y-auto p-4">
+        {error && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="p-4 mb-4 text-sm text-destructive bg-destructive/10 rounded-md"
+          >
+            {error}
+          </motion.div>
+        )}
+        
+        <AnimatePresence mode="sync">
+          {isLoading ? (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="p-4 text-sm text-destructive bg-destructive/10 rounded-md"
-            >
-              {error}
-            </motion.div>
-          )}
-          
-          {isGenerating ? (
-            <motion.div
+              key="loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -135,6 +149,7 @@ export function KeyConcepts({ url, currentPage, onBack }: KeyConceptsProps) {
             </motion.div>
           ) : (
             <motion.div
+              key="content"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
