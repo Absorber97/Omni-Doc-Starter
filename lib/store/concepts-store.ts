@@ -1,46 +1,98 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ConceptType } from '@/types/pdf';
+import { type EmbeddingsStore } from '@/lib/embeddings-store';
 
-export type GenerationMode = 'all-pages' | 'page-by-page';
+export type DepthLevel = 1 | 2 | 3;
+
+export interface Concept {
+  id: string;
+  text: string;
+  depthLevel: DepthLevel;
+  pageNumber: number;
+  location: {
+    pageNumber: number;
+    textSnippet: string;
+  };
+  metadata?: {
+    confidence: number;
+    importance: number; // 0-1 score
+    sourceContext: string;
+  };
+}
 
 interface ConceptsState {
   concepts: Concept[];
-  generationMode: GenerationMode;
-  setGenerationMode: (mode: GenerationMode) => void;
-  addConcepts: (newConcepts: Concept[]) => void;
+  highlightedConceptId: string | null;
+  selectedConceptId: string | null;
+  currentDepthLevel: DepthLevel;
+  isGenerating: boolean;
+  error: string | null;
+  generationMode: 'all-pages' | 'current-page';
+  generatedPages: number[];
+  
+  // Actions
+  setDepthLevel: (level: DepthLevel) => void;
+  setGenerationMode: (mode: 'all-pages' | 'current-page') => void;
+  addConcepts: (concepts: Concept[]) => void;
+  highlightConcept: (id: string | null) => void;
+  selectConcept: (id: string | null) => void;
   getConceptsByPage: (pageNumber: number) => Concept[];
-  clearConcepts: () => void;
+  getConceptById: (id: string) => Concept | undefined;
+  markPageAsGenerated: (pageNumber: number) => void;
+  setIsGenerating: (isGenerating: boolean) => void;
+  reset: () => void;
 }
+
+const initialState = {
+  concepts: [],
+  highlightedConceptId: null,
+  selectedConceptId: null,
+  currentDepthLevel: 1 as DepthLevel,
+  isGenerating: false,
+  error: null,
+  generationMode: 'all-pages' as const,
+  generatedPages: [],
+};
 
 export const useConceptsStore = create<ConceptsState>()(
   persist(
     (set, get) => ({
-      concepts: [],
-      generationMode: 'all-pages',
-      setGenerationMode: (mode) => set({ generationMode: mode }),
-      addConcepts: (newConcepts) => {
-        set((state) => {
-          if (get().generationMode === 'page-by-page') {
-            const otherPageConcepts = state.concepts.filter(
-              c => !newConcepts.some(nc => nc.pageNumber === c.pageNumber)
-            );
-            return { concepts: [...otherPageConcepts, ...newConcepts] };
-          }
-          return { concepts: [...state.concepts, ...newConcepts] };
-        });
-      },
-      getConceptsByPage: (pageNumber) => {
-        return get().concepts.filter(c => c.pageNumber === pageNumber);
-      },
-      clearConcepts: () => set({ concepts: [] })
+      ...initialState,
+
+      setDepthLevel: (level) => 
+        set({ currentDepthLevel: level }),
+
+      setGenerationMode: (mode) => 
+        set({ generationMode: mode }),
+
+      addConcepts: (concepts) => 
+        set({ concepts: [...get().concepts, ...concepts] }),
+
+      highlightConcept: (id) => 
+        set({ highlightedConceptId: id }),
+        
+      selectConcept: (id) => 
+        set({ selectedConceptId: id }),
+
+      getConceptsByPage: (pageNumber) => 
+        get().concepts.filter(c => c.pageNumber === pageNumber),
+
+      getConceptById: (id) => 
+        get().concepts.find(c => c.id === id),
+
+      markPageAsGenerated: (pageNumber) =>
+        set(state => ({
+          generatedPages: [...state.generatedPages, pageNumber]
+        })),
+
+      setIsGenerating: (isGenerating) =>
+        set({ isGenerating }),
+
+      reset: () => set(initialState),
     }),
     {
-      name: 'omni-doc-concepts',
-      partialize: (state) => ({
-        concepts: state.generationMode === 'all-pages' ? state.concepts : [],
-        generationMode: state.generationMode
-      })
+      name: 'concepts-storage',
+      version: 2,
     }
   )
 );

@@ -53,19 +53,4 @@ export class PDFContentExtractor {
       throw error;
     }
   }
-
-  async getAllContent(): Promise<string> {
-    if (!this.pdfDocument) {
-      throw new Error('PDF document not loaded');
-    }
-
-    const numPages = this.pdfDocument.numPages;
-    console.log(`[PDFExtractor] Extracting content from all ${numPages} pages`);
-
-    const pageContents = await Promise.all(
-      Array.from({ length: numPages }, (_, i) => this.getPageContent(i + 1))
-    );
-
-    return pageContents.join('\n\n');
-  }
 }

@@ -10,9 +10,11 @@ import {
   LayoutGrid, 
   MessageSquare,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
 import { KeyConcepts } from './key-concepts';
 import { Summary } from './summary';
@@ -20,6 +22,7 @@ import { Flashcards } from './flashcards';
 import { Chat } from './chat';
 import { cn } from '@/lib/utils';
 import { ErrorBoundary } from './error-boundary';
+import { useConceptsStore } from '@/lib/store/concepts-store';
 
 interface AIFeaturesProps {
   url: string;
@@ -42,6 +45,7 @@ type Feature = {
 
 export function AIFeatures({ url, currentPage, onPathChange }: AIFeaturesProps) {
   const [selectedFeature, setSelectedFeature] = useState<Feature['id'] | null>(null);
+  const { currentDepthLevel, setDepthLevel } = useConceptsStore();
 
   const features: Feature[] = [
     {
@@ -81,21 +85,46 @@ export function AIFeatures({ url, currentPage, onPathChange }: AIFeaturesProps) 
     if (!feature) return null;
 
     return (
-      <div className="flex items-center gap-2 mb-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-2 text-muted-foreground hover:text-foreground"
-          onClick={() => {
-            setSelectedFeature(null);
-            onPathChange(['ai']);
-          }}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          AI Features
-        </Button>
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">{feature.label}</span>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setSelectedFeature(null);
+              onPathChange(['ai']);
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            AI Features
+          </Button>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{feature.label}</span>
+        </div>
+
+        {selectedFeature === 'concepts' && (
+          <Tabs
+            value={String(currentDepthLevel)}
+            onValueChange={(value) => setDepthLevel(Number(value) as 1 | 2 | 3)}
+            className="w-auto"
+          >
+            <TabsList>
+              <TabsTrigger value="1" className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                <span>Basic</span>
+              </TabsTrigger>
+              <TabsTrigger value="2" className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                <span>Detailed</span>
+              </TabsTrigger>
+              <TabsTrigger value="3" className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                <span>Complete</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
       </div>
     );
   };

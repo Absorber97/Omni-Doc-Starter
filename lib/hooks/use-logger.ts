@@ -1,6 +1,11 @@
 import { useRef } from 'react';
 
-export function useLogger(component: string) {
+interface Logger {
+  info: (message: string, data?: any) => void;
+  error: (message: string, error?: any) => void;
+}
+
+export function useLogger(component: string): Logger {
   return useRef({
     info: (message: string, data?: any) => {
       console.log(`[${component}] ${message}`, data || '');
@@ -9,4 +14,4 @@ export function useLogger(component: string) {
       console.error(`[${component}] ${message}`, error || '');
     }
   }).current;
-} 
+}
