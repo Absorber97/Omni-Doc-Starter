@@ -2,6 +2,7 @@
 
 import OpenAI from 'openai';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
+import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -9,9 +10,16 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
+// Text splitter configuration
+const textSplitter = new RecursiveCharacterTextSplitter({
+  chunkSize: 4000, // Conservative chunk size for embeddings
+  chunkOverlap: 200,
+  separators: ["\n\n", "\n", " ", ""] // Try different separators in order
+});
+
 export class EmbeddingsStore {
   private static instance: EmbeddingsStore;
-  private store: Map<string, {
+  public store: Map<string, {
     content: string;
     embedding: number[];
     timestamp: number;
@@ -39,23 +47,36 @@ export class EmbeddingsStore {
     metadata: Record<string, any>
   ) {
     try {
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: content,
-        encoding_format: 'float',
-      });
+      // Split text into chunks
+      const chunks = await textSplitter.createDocuments([content]);
+      const ids: string[] = [];
 
-      const id = crypto.randomUUID();
-      this.store.set(id, {
-        content,
-        embedding: response.data[0].embedding,
-        metadata,
-        timestamp: Date.now()
-      });
+      // Process each chunk
+      for (const chunk of chunks) {
+        const response = await openai.embeddings.create({
+          model: 'text-embedding-3-small',
+          input: chunk.pageContent,
+          encoding_format: 'float',
+        });
+
+        const id = crypto.randomUUID();
+        this.store.set(id, {
+          content: chunk.pageContent,
+          embedding: response.data[0].embedding,
+          metadata: {
+            ...metadata,
+            isChunk: chunks.length > 1,
+            chunkIndex: chunks.indexOf(chunk),
+            totalChunks: chunks.length
+          },
+          timestamp: Date.now()
+        });
+        ids.push(id);
+      }
 
       // Cleanup old entries
       this.cleanup();
-      return id;
+      return ids;
     } catch (error) {
       console.error('Error generating embeddings:', error);
       throw error;
@@ -89,11 +110,48 @@ export class EmbeddingsStore {
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, k);
 
-      return results;
+      // If results are chunks, combine them by document
+      const combinedResults = this.combineChunks(results);
+      return combinedResults.slice(0, k);
     } catch (error) {
       console.error('Error in similarity search:', error);
       throw error;
     }
+  }
+
+  private combineChunks(results: Array<{
+    id: string;
+    content: string;
+    metadata: Record<string, any>;
+    similarity: number;
+  }>) {
+    const documentMap = new Map<string, {
+      content: string[];
+      metadata: Record<string, any>;
+      similarity: number;
+    }>();
+
+    for (const result of results) {
+      const docId = result.metadata.documentId;
+      if (!documentMap.has(docId)) {
+        documentMap.set(docId, {
+          content: [],
+          metadata: { ...result.metadata },
+          similarity: result.similarity
+        });
+      }
+
+      const doc = documentMap.get(docId)!;
+      doc.content.push(result.content);
+      // Average the similarities
+      doc.similarity = (doc.similarity + result.similarity) / 2;
+    }
+
+    return Array.from(documentMap.values()).map(doc => ({
+      content: doc.content.join('\n\n'),
+      metadata: doc.metadata,
+      similarity: doc.similarity
+    }));
   }
 
   getStats() {

@@ -6,7 +6,8 @@ import { ConceptGenerator } from './concept-generator';
 import { TOCProcessor } from './toc-processor';
 import { type DepthLevel } from '@/lib/store/concepts-store';
 import { type Concept } from '@/lib/store/concepts-store';
-import { type ChatCompletionCreateParams } from 'openai/resources';
+import { RAGConceptService } from './rag-concept-service';
+import { EmbeddingsStore } from '@/lib/embeddings-store';
 
 interface ProcessingOptions {
   extractText?: boolean;
@@ -25,6 +26,7 @@ export class DocumentProcessor {
   private currentDocument: PDFDocument | null = null;
   
   public conceptGenerator: ConceptGenerator;
+  private ragConceptService: RAGConceptService;
 
   constructor() {
     if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
@@ -41,6 +43,7 @@ export class DocumentProcessor {
     this.tocProcessor = new TOCProcessor();
     this.vectorStore = new Map();
     this.documentCache = new Map();
+    this.ragConceptService = new RAGConceptService();
   }
 
   async processDocument(
@@ -77,6 +80,31 @@ export class DocumentProcessor {
       // Process pages
       if (options.extractText) {
         doc.pages = await this.processPages(doc.metadata.pageCount);
+        
+        // Store content in vector store
+        const embeddingsStore = EmbeddingsStore.getInstance();
+        
+        // Store whole document content for global concepts
+        await embeddingsStore.addDocument(
+          doc.pages.map(p => p.text).join('\n\n'),
+          { 
+            documentId: doc.id,
+            type: 'full-document',
+            pageCount: doc.metadata.pageCount
+          }
+        );
+
+        // Store individual pages
+        for (const page of doc.pages) {
+          await embeddingsStore.addDocument(
+            page.text,
+            {
+              documentId: doc.id,
+              type: 'page',
+              pageNumber: page.pageNumber
+            }
+          );
+        }
       }
 
       // Generate table of contents
@@ -240,147 +268,14 @@ export class DocumentProcessor {
 
   async generateConcepts(pageNumber: number, depthLevel: DepthLevel): Promise<Concept[]> {
     try {
-      console.log('[DocumentProcessor] Starting concept generation:', { pageNumber, depthLevel });
+      console.log('[DocumentProcessor] Starting RAG-based concept generation:', { pageNumber, depthLevel });
       
       if (!this.currentDocument) {
         throw new Error('No document loaded');
       }
 
-      const config = this.depthConfig[depthLevel];
-      const allConcepts: Concept[] = [];
-      const pages = pageNumber === -1 
-        ? this.currentDocument.pages 
-        : [this.currentDocument.pages[pageNumber - 1]];
-
-      if (!pages?.length) {
-        throw new Error('No pages found in document');
-      }
-
-      console.log(`[DocumentProcessor] Processing ${pages.length} pages for concepts`);
-
-      // Process pages in smaller batches to avoid rate limits
-      const batchSize = 2; // Process 2 pages at a time
-      for (let i = 0; i < pages.length; i += batchSize) {
-        const batch = pages.slice(i, i + batchSize);
-        console.log(`[DocumentProcessor] Processing batch ${Math.floor(i / batchSize) + 1}, pages ${i + 1}-${i + batch.length}`);
-
-        try {
-          // Create a single batch request for all pages
-          const messages = batch.map(page => ({
-            role: 'user' as const,
-            content: `Extract key concepts from this text:\n\n${page.text}`
-          }));
-
-          // Calculate concepts per page
-          const totalConcepts = config.count;
-          const conceptsPerPage = Math.max(1, Math.floor(totalConcepts / pages.length));
-          
-          // Create system message
-          const systemMessage = {
-            role: 'system' as const,
-            content: `You are an expert concept extractor for educational content.
-              For each text provided, extract exactly ${conceptsPerPage} ${config.description} concepts.
-              
-              Requirements for each concept:
-              1. Title: Clear, unique title (max 50 chars)
-              2. Content: Self-contained explanation (2-3 sentences)
-              3. Tags: Exactly 3 non-overlapping, specific tags
-              4. Emoji: Single most relevant emoji
-              5. Importance: Score between ${config.priorityRange[0]} and ${config.priorityRange[1]}
-                 - Distribute scores evenly within range
-                 - No duplicate scores
-                 - Higher = more fundamental
-              
-              Format as JSON:
-              {
-                "concepts": [
-                  {
-                    "title": "Unique Concept Title",
-                    "content": "Complete, standalone explanation.",
-                    "tags": ["specific", "unique", "tags"],
-                    "emoji": "🔍",
-                    "importance": 0.85
-                  }
-                ]
-              }
-
-              Critical Rules:
-              - Each concept must be completely unique
-              - No overlapping or duplicate content
-              - Explanations must be self-contained
-              - Tags must be specific and distinct
-              - Importance scores must be evenly distributed
-              - Return exactly ${conceptsPerPage} concepts per text`
-          };
-
-          // Make a single API call for the batch
-          const response = await this.openai.chat.completions.create({
-            model: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4-turbo-preview',
-            messages: [systemMessage, ...messages],
-            temperature: 0.2,
-            max_tokens: 4000,
-            response_format: { type: "json_object" }
-          });
-
-          const content = response.choices[0]?.message?.content;
-          if (!content) {
-            console.warn(`[DocumentProcessor] No content in AI response for batch ${i / batchSize + 1}`);
-            continue;
-          }
-
-          const parsedResponse = JSON.parse(content);
-          if (!parsedResponse.concepts?.length) {
-            console.warn(`[DocumentProcessor] Invalid response format for batch ${i / batchSize + 1}`);
-            continue;
-          }
-
-          // Process concepts for each page in the batch
-          batch.forEach((page, batchIndex) => {
-            const pageStart = batchIndex * conceptsPerPage;
-            const pageConcepts = parsedResponse.concepts.slice(pageStart, pageStart + conceptsPerPage);
-
-            const processedConcepts = pageConcepts.map((concept: any, index: number) => {
-              const scoreRange = config.priorityRange[1] - config.priorityRange[0];
-              const stepSize = scoreRange / (conceptsPerPage - 1 || 1);
-              const adjustedImportance = config.priorityRange[0] + (stepSize * index);
-
-              return {
-                id: crypto.randomUUID(),
-                text: concept.title.trim(),
-                depthLevel,
-                pageNumber: page.pageNumber,
-                location: {
-                  pageNumber: page.pageNumber,
-                  textSnippet: concept.content.trim()
-                },
-                metadata: {
-                  confidence: 0.9,
-                  importance: adjustedImportance,
-                  sourceContext: concept.content,
-                  tags: concept.tags.slice(0, 3),
-                  emoji: concept.emoji,
-                  category: config.label
-                }
-              };
-            });
-
-            allConcepts.push(...processedConcepts);
-          });
-
-        } catch (error) {
-          console.error(`[DocumentProcessor] Error processing batch ${i / batchSize + 1}:`, error);
-          // Continue with next batch even if this one fails
-        }
-
-        // Add a longer delay between batches to avoid rate limits
-        if (i + batchSize < pages.length) {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
-      }
-
-      console.log('[DocumentProcessor] Generated concepts:', allConcepts);
-      return allConcepts;
-
+      // Use RAG-based concept generation
+      return await this.ragConceptService.generateConcepts(pageNumber, depthLevel);
     } catch (error) {
       console.error('[DocumentProcessor] Error generating concepts:', error);
       throw error;

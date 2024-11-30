@@ -16,6 +16,7 @@ interface KeyConceptsProps {
 
 export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps) {
   const [error, setError] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   const {
     currentDocument,
@@ -35,14 +36,15 @@ export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps
     getConceptsByPage
   } = useConceptsStore();
 
-  // Add initial state check
+  // Reset states on mount
   useEffect(() => {
-    // Reset isGenerating on mount
     setIsGenerating(false);
+    setError(null);
+    setIsInitialLoad(true);
     
     return () => {
-      // Cleanup on unmount
       setIsGenerating(false);
+      setError(null);
     };
   }, []);
 
@@ -56,13 +58,13 @@ export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps
         if (!currentDocument || currentDocument.url !== url) {
           console.log('Starting document processing...');
           const doc = await processDocument(url, 'document.pdf');
-          if (!doc || !doc.pages?.length) {
-            throw new Error('Document processing failed or document is empty');
+          if (!doc) {
+            throw new Error('Document processing failed');
           }
           console.log('Document processing completed with doc:', doc);
         }
 
-        // Generate concepts for all pages if not already generated
+        // Generate concepts if not already generated
         if (!isGenerating && processor && currentDocument?.pages) {
           // Check if we already have concepts for this depth level
           const existingConcepts = currentDocument.pages.every(page => 
@@ -71,6 +73,7 @@ export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps
 
           if (existingConcepts) {
             console.log('All pages already have concepts for depth level:', currentDepthLevel);
+            setIsInitialLoad(false);
             return;
           }
 
@@ -107,12 +110,13 @@ export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps
             setError(err instanceof Error ? err.message : 'Failed to generate concepts');
           } finally {
             setIsGenerating(false);
+            setIsInitialLoad(false);
           }
         }
-      } catch (err) {
-        console.error('Document processing error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to process document');
-        setIsGenerating(false);
+      } catch (error) {
+        console.error('Document processing error:', error);
+        setError(error instanceof Error ? error.message : 'Document processing failed');
+        setIsInitialLoad(false);
       }
     };
 
@@ -130,7 +134,7 @@ export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps
   }
 
   // Add loading state
-  if (isProcessingDocument || isGenerating) {
+  if (isProcessingDocument || isGenerating || isInitialLoad) {
     return (
       <div className="p-4">
         <div className="animate-pulse space-y-4">
