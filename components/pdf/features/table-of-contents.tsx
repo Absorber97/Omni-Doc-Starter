@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, type Variants } from 'framer-motion';
 import { ChevronRight, BookOpen, Hash, FileText } from 'lucide-react';
 import { useSynchronizedNavigation } from '@/lib/hooks/use-synchronized-navigation';
 import { useTOCStore } from '@/lib/store/toc-store';
+import { useTOCProcessor } from '@/lib/hooks/use-toc-processor';
 import {
   Tooltip,
   TooltipContent,
@@ -116,64 +117,129 @@ const truncateHelpers = {
   }
 };
 
-export function TableOfContents({ items }: TableOfContentsProps) {
-  const { 
-    currentPage, 
-    handlePageChange 
-  } = useSynchronizedNavigation({
-    source: 'toc'
-  });
+// Add LoadingState component
+function LoadingState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <p className="text-sm mt-4">Loading table of contents...</p>
+    </div>
+  );
+}
 
-  const [isLoading, setIsLoading] = useState(true);
-  const { 
-    expandedItems, 
-    setExpandedItems, 
+// Add EmptyState component
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+      <BookOpen className="h-8 w-8 mb-2 animate-pulse" />
+      <p className="text-sm font-medium">No table of contents available</p>
+      <p className="text-xs mt-1">This document doesn't contain any headings</p>
+    </div>
+  );
+}
+
+export function TableOfContents({ items }: TableOfContentsProps) {
+  const [isInitialized, setIsInitialized] = useState(false);
+  const initRef = useRef(false);
+  
+  const {
+    isLoading,
+    expandedItems,
     setItems,
     toggleItem: toggleStoredItem,
     isItemExpanded,
     isGenerated,
-    reset
+    processingStatus,
+    aiProcessedItems,
+    isAIProcessed,
+    setIsLoading
   } = useTOCStore();
 
-  // Reset store when component unmounts
-  useEffect(() => {
-    return () => {
-      reset();
-    };
-  }, [reset]);
+  const { processItems, isProcessing } = useTOCProcessor();
 
-  // Initialize TOC items and expanded state
-  useEffect(() => {
-    if (items.length > 0 && !isGenerated) {
+  // Initialize navigation
+  const { currentPage, handlePageChange } = useSynchronizedNavigation({ 
+    source: 'toc'
+  });
+
+  // Process items with AI when needed
+  const processWithAI = useCallback(async () => {
+    if (!items?.length || (isAIProcessed && aiProcessedItems.length > 0)) {
+      return;
+    }
+
+    try {
       setIsLoading(true);
-      const allItemTitles: string[] = [];
-      
-      const collectTitles = (items: TOCItem[]) => {
-        items.forEach(item => {
-          allItemTitles.push(item.title);
-          if (item.children) {
-            collectTitles(item.children);
-          }
+      const processed = await processItems(items);
+      if (processed?.length) {
+        requestAnimationFrame(() => {
+          setItems(processed);
         });
-      };
-      
-      collectTitles(items);
-      setItems(items);
-      setExpandedItems(allItemTitles);
-      setIsLoading(false);
-    } else {
+      }
+    } catch (error) {
+      console.error('Error processing TOC:', error);
+    } finally {
       setIsLoading(false);
     }
-  }, [items, setItems, setExpandedItems, isGenerated]);
+  }, [items, isAIProcessed, aiProcessedItems, processItems, setItems, setIsLoading]);
 
-  const onItemClick = (pageNumber: number) => {
-    handlePageChange(pageNumber);
-  };
+  // Add back the onItemClick handler
+  const onItemClick = useCallback((pageNumber: number) => {
+    if (typeof pageNumber === 'number' && handlePageChange) {
+      handlePageChange(pageNumber);
+    }
+  }, [handlePageChange]);
 
-  const renderItem = (item: TOCItem, index: number) => {
+  // Handle initial hydration once
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
+    if (isAIProcessed && aiProcessedItems.length > 0) {
+      console.log('📦 Using stored AI items:', aiProcessedItems.length);
+      setIsInitialized(true);
+      requestAnimationFrame(() => {
+        setItems(aiProcessedItems);
+      });
+      return; // Early return if we have stored items
+    }
+
+    // Only process new items if we don't have stored ones
+    if (!isGenerated && items.length > 0) {
+      console.log('🔄 Processing new TOC items');
+      requestAnimationFrame(() => {
+        setItems(items);
+        processWithAI();
+      });
+    }
+  }, [isAIProcessed, aiProcessedItems, isGenerated, items, setItems, processWithAI]);
+
+  // Initialize TOC items and process with AI
+  useEffect(() => {
+    if (!items?.length || isInitialized) return;
+
+    const initializeTOC = async () => {
+      try {
+        if (!isGenerated) {
+          console.log('🔄 Processing new TOC items');
+          requestAnimationFrame(() => {
+            setItems(items);
+            processWithAI();
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing TOC:', error);
+      }
+    };
+
+    initializeTOC();
+  }, [items, isGenerated, isInitialized, setItems, processWithAI]);
+
+  // Render item with memoization
+  const renderItem = useCallback((item: TOCItem, index: number) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = isItemExpanded(item.title);
-    const isCurrentPage = item.pageNumber === currentPage;
+    const isCurrentPage = currentPage === item.pageNumber;
     const truncatedTitle = truncateHelpers.smartTruncate(item);
 
     return (
@@ -271,23 +337,19 @@ export function TableOfContents({ items }: TableOfContentsProps) {
         )}
       </motion.div>
     );
-  };
+  }, [currentPage, isItemExpanded, toggleStoredItem, onItemClick]);
 
   return (
     <div className="space-y-1">
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="text-sm mt-4">Loading table of contents...</p>
-        </div>
+      {isLoading || isProcessing ? (
+        <LoadingState />
       ) : items && items.length > 0 ? (
-        items.map((item, index) => renderItem(item, index))
+        <>
+          {(aiProcessedItems.length > 0 ? aiProcessedItems : items)
+            .map((item, index) => renderItem(item, index))}
+        </>
       ) : (
-        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-          <BookOpen className="h-8 w-8 mb-2 animate-pulse" />
-          <p className="text-sm font-medium">No table of contents available</p>
-          <p className="text-xs mt-1">This document doesn't contain any headings</p>
-        </div>
+        <EmptyState />
       )}
     </div>
   );

@@ -1,61 +1,56 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useNavigationStore } from '@/lib/store/pdf-navigation-store';
+import { useNavigationStore } from '@/lib/store/navigation-store';
 
-interface SyncNavOptions {
-  onPageChange?: (page: number) => void;
+interface UseSynchronizedNavigationProps {
+  source?: string;
   scrollBehavior?: ScrollBehavior;
-  source: 'viewer' | 'toc' | 'thumbnails' | 'controls';
+  onPageChange?: (page: number) => void;
 }
 
 export function useSynchronizedNavigation({ 
-  onPageChange, 
+  source = 'default',
   scrollBehavior = 'smooth',
-  source 
-}: SyncNavOptions) {
+  onPageChange 
+}: UseSynchronizedNavigationProps = {}) {
   const { 
     currentPage, 
-    activeSource, 
+    source: activeSource, 
     isAutoScrolling,
-    setCurrentPage, 
+    setPage,
     setIsAutoScrolling 
   } = useNavigationStore();
   
   const lastInteractionRef = useRef<number>(Date.now());
 
+  // Handle smooth scrolling to pages
   const scrollToPage = useCallback((page: number) => {
-    if (!isAutoScrolling) {
-      setIsAutoScrolling(true);
+    if (!isAutoScrolling && typeof window !== 'undefined') {
       const element = document.getElementById(`page-${page}`);
       if (element) {
+        setIsAutoScrolling(true);
         element.scrollIntoView({ behavior: scrollBehavior });
-        setTimeout(() => setIsAutoScrolling(false), 1000);
+        const timer = setTimeout(() => setIsAutoScrolling(false), 1000);
+        return () => clearTimeout(timer);
       }
     }
   }, [isAutoScrolling, setIsAutoScrolling, scrollBehavior]);
 
+  // Handle page changes
   const handlePageChange = useCallback((page: number) => {
+    if (typeof page !== 'number') return;
+    
     lastInteractionRef.current = Date.now();
-    setCurrentPage(page, source);
+    setPage(page, source);
     onPageChange?.(page);
     
     // Only auto-scroll if this component isn't the active source
     if (activeSource !== source) {
       scrollToPage(page);
     }
-  }, [source, activeSource, setCurrentPage, onPageChange, scrollToPage]);
-
-  // Sync with current page changes from other sources
-  useEffect(() => {
-    const timeSinceLastInteraction = Date.now() - lastInteractionRef.current;
-    
-    // Only respond to external changes after a cooldown period
-    if (activeSource !== source && timeSinceLastInteraction > 500) {
-      scrollToPage(currentPage);
-    }
-  }, [currentPage, activeSource, source, scrollToPage]);
+  }, [source, activeSource, setPage, onPageChange, scrollToPage]);
 
   return {
-    currentPage,
+    currentPage: currentPage || 1,
     activeSource,
     handlePageChange,
     isAutoScrolling

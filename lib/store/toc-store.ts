@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { TOCItem } from '@/lib/types/pdf';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+interface TOCProcessingStatus {
+  isProcessing: boolean;
+  lastProcessed: number | null;
+  error: string | null;
+}
 
 interface TOCState {
   items: TOCItem[];
@@ -8,6 +14,8 @@ interface TOCState {
   isGenerated: boolean;
   aiProcessedItems: TOCItem[];
   isAIProcessed: boolean;
+  processingStatus: TOCProcessingStatus;
+  isLoading: boolean;
   setItems: (items: TOCItem[]) => void;
   setExpandedItems: (items: string[]) => void;
   setIsGenerated: (generated: boolean) => void;
@@ -15,6 +23,8 @@ interface TOCState {
   toggleItem: (title: string) => void;
   reset: () => void;
   isItemExpanded: (title: string) => boolean;
+  setProcessingStatus: (status: Partial<TOCProcessingStatus>) => void;
+  setIsLoading: (loading: boolean) => void;
 }
 
 const initialState = {
@@ -23,7 +33,13 @@ const initialState = {
   isGenerated: false,
   aiProcessedItems: [] as TOCItem[],
   isAIProcessed: false,
-};
+  processingStatus: {
+    isProcessing: false,
+    lastProcessed: null,
+    error: null
+  },
+  isLoading: true,
+} as const;
 
 export const useTOCStore = create<TOCState>()(
   persist(
@@ -31,62 +47,121 @@ export const useTOCStore = create<TOCState>()(
       ...initialState,
       
       setItems: (items) => {
-        const existingItems = get().items;
-        if (existingItems.length > 0) {
-          console.log('📚 Reusing existing TOC data:', existingItems.length, 'items');
-        } else {
-          console.log('Generating new TOC data:', items.length, 'items');
+        const state = get();
+        
+        // If we already have processed items and are initialized, do nothing
+        if (state.isAIProcessed && state.aiProcessedItems.length > 0 && state.isGenerated) {
+          console.log('📦 Already initialized with AI items, skipping');
+          return;
         }
-        set({ items, isGenerated: true });
+
+        // If we have stored AI items but aren't initialized
+        if (state.isAIProcessed && state.aiProcessedItems.length > 0) {
+          console.log('📦 Using stored AI items:', state.aiProcessedItems.length);
+          set({ 
+            items: state.aiProcessedItems,
+            isGenerated: true,
+            isLoading: false,
+            isAIProcessed: true // Ensure this is set
+          });
+          return;
+        }
+
+        // Only set new items if we don't have AI processed items
+        if (!state.isAIProcessed || !state.aiProcessedItems.length) {
+          console.log('🔄 Setting new items:', items.length);
+          set({ 
+            items,
+            isGenerated: true,
+            isLoading: false,
+            isAIProcessed: false,
+            aiProcessedItems: []
+          });
+        }
       },
-      
-      setExpandedItems: (expandedItems) => {
-        console.log('Updating expanded items:', expandedItems.length, 'items');
-        set({ expandedItems });
-      },
-      
-      setIsGenerated: (isGenerated) => {
-        console.log('Setting TOC generation status:', isGenerated);
-        set({ isGenerated });
-      },
+
+      setExpandedItems: (expandedItems) => set({ expandedItems }),
+      setIsGenerated: (isGenerated) => set({ isGenerated }),
       
       setAIProcessedItems: (items) => {
-        const existingAIItems = get().aiProcessedItems;
-        if (existingAIItems.length > 0) {
-          console.log('🤖 Reusing AI-processed TOC:', existingAIItems.length, 'items');
-        } else {
-          console.log('Setting new AI-processed TOC:', items.length, 'items');
+        if (!items?.length) return;
+        
+        const state = get();
+        // Skip if we already have processed items
+        if (state.isAIProcessed && state.aiProcessedItems.length > 0) {
+          console.log('🔄 Already have AI processed items, skipping');
+          return;
         }
-        set({ aiProcessedItems: items, isAIProcessed: true });
+
+        console.log('💫 Setting new AI-processed TOC:', items.length);
+        set({ 
+          aiProcessedItems: items,
+          items,
+          isAIProcessed: true,
+          isLoading: false,
+          processingStatus: {
+            isProcessing: false,
+            lastProcessed: Date.now(),
+            error: null
+          }
+        });
       },
       
       toggleItem: (title) => 
-        set((state) => {
-          const index = state.expandedItems.indexOf(title);
-          const newExpandedItems = [...state.expandedItems];
-          
-          if (index === -1) {
-            console.log('Expanding TOC item:', title);
-            newExpandedItems.push(title);
-          } else {
-            console.log('Collapsing TOC item:', title);
-            newExpandedItems.splice(index, 1);
-          }
-          
-          return { expandedItems: newExpandedItems };
-        }),
+        set((state) => ({
+          expandedItems: state.expandedItems.includes(title)
+            ? state.expandedItems.filter(t => t !== title)
+            : [...state.expandedItems, title]
+        })),
       
-      isItemExpanded: (title) => 
-        get().expandedItems.includes(title),
+      isItemExpanded: (title) => get().expandedItems.includes(title),
       
-      reset: () => {
-        console.log('🗑️ Resetting TOC store to initial state');
-        set(initialState);
-      },
+      reset: () => set(initialState),
+      
+      setProcessingStatus: (status) => 
+        set((state) => ({
+          processingStatus: { ...state.processingStatus, ...status }
+        })),
+      
+      setIsLoading: (isLoading) => set({ isLoading })
     }),
     {
       name: 'toc-storage',
-      version: 1,
+      version: 4,
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        aiProcessedItems: state.aiProcessedItems,
+        isAIProcessed: state.isAIProcessed,
+        processingStatus: state.processingStatus,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (!state?.aiProcessedItems?.length) return;
+        
+        console.log('📥 Found stored AI items:', state.aiProcessedItems.length);
+        
+        // Use requestAnimationFrame to avoid state updates during render
+        requestAnimationFrame(() => {
+          useTOCStore.setState({ 
+            items: state.aiProcessedItems,
+            aiProcessedItems: state.aiProcessedItems,
+            isAIProcessed: true,
+            isGenerated: true,
+            isLoading: false,
+            processingStatus: {
+              isProcessing: false,
+              lastProcessed: Date.now(),
+              error: null
+            }
+          });
+          console.log('✅ Rehydration complete');
+        });
+      }
     }
   )
-); 
+);
+
+// Export store ready state
+export const getStoreReadyState = () => {
+  const state = useTOCStore.getState();
+  return state.isAIProcessed && state.aiProcessedItems.length > 0;
+}; 

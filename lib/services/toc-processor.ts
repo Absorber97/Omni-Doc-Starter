@@ -5,6 +5,10 @@ import { openAIConfig, openAIClientConfig } from '@/config/openai';
 // Initialize OpenAI client
 const openai = new OpenAI(openAIClientConfig);
 
+export const processTOCWithAI = async (items: TOCItem[]): Promise<TOCItem[]> => {
+  return TOCProcessor.processTableOfContents(items);
+};
+
 export class TOCProcessor {
   private static readonly HEADING_PATTERNS = [
     /^(Chapter|Section|\d+\.|[IVXLCDM]+\.)\s+\w+/i,
@@ -274,7 +278,7 @@ export class TOCProcessor {
         });
 
         const result = response.choices[0].message.content;
-        if (result === 'KEEP_ORIGINAL') {
+        if (!result || result === 'KEEP_ORIGINAL') {
           return { 
             title: item.title, 
             tooltip: item.metadata?.originalText || item.title 
@@ -284,8 +288,8 @@ export class TOCProcessor {
         try {
           const parsed = JSON.parse(result);
           return {
-            title: parsed.title,
-            tooltip: parsed.tooltip
+            title: parsed.title || item.title,
+            tooltip: parsed.tooltip || item.metadata?.originalText || item.title
           };
         } catch (e) {
           console.error('Error parsing AI response:', e);
