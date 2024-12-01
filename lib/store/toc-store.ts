@@ -6,9 +6,12 @@ interface TOCState {
   items: TOCItem[];
   expandedItems: string[];
   isGenerated: boolean;
+  aiProcessedItems: TOCItem[];
+  isAIProcessed: boolean;
   setItems: (items: TOCItem[]) => void;
   setExpandedItems: (items: string[]) => void;
   setIsGenerated: (generated: boolean) => void;
+  setAIProcessedItems: (items: TOCItem[]) => void;
   toggleItem: (title: string) => void;
   reset: () => void;
   isItemExpanded: (title: string) => boolean;
@@ -18,6 +21,8 @@ const initialState = {
   items: [] as TOCItem[],
   expandedItems: [] as string[],
   isGenerated: false,
+  aiProcessedItems: [] as TOCItem[],
+  isAIProcessed: false,
 };
 
 export const useTOCStore = create<TOCState>()(
@@ -25,14 +30,25 @@ export const useTOCStore = create<TOCState>()(
     (set, get) => ({
       ...initialState,
       
-      setItems: (items) => 
-        set({ items, isGenerated: true }),
+      setItems: (items) => {
+        console.log('Setting TOC items:', items.length, 'items');
+        set({ items, isGenerated: true });
+      },
       
-      setExpandedItems: (expandedItems) => 
-        set({ expandedItems }),
+      setExpandedItems: (expandedItems) => {
+        console.log('Updating expanded items:', expandedItems.length, 'items');
+        set({ expandedItems });
+      },
       
-      setIsGenerated: (isGenerated) => 
-        set({ isGenerated }),
+      setIsGenerated: (isGenerated) => {
+        console.log('Setting TOC generation status:', isGenerated);
+        set({ isGenerated });
+      },
+      
+      setAIProcessedItems: (items) => {
+        console.log('Setting AI processed TOC items:', items.length, 'items');
+        set({ aiProcessedItems: items, isAIProcessed: true });
+      },
       
       toggleItem: (title) => 
         set((state) => {
@@ -40,8 +56,10 @@ export const useTOCStore = create<TOCState>()(
           const newExpandedItems = [...state.expandedItems];
           
           if (index === -1) {
+            console.log('Expanding TOC item:', title);
             newExpandedItems.push(title);
           } else {
+            console.log('Collapsing TOC item:', title);
             newExpandedItems.splice(index, 1);
           }
           
@@ -51,8 +69,10 @@ export const useTOCStore = create<TOCState>()(
       isItemExpanded: (title) => 
         get().expandedItems.includes(title),
       
-      reset: () => 
-        set(initialState),
+      reset: () => {
+        console.log('Resetting TOC store to initial state');
+        set(initialState);
+      },
     }),
     {
       name: 'toc-storage',
