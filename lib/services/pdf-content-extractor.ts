@@ -27,14 +27,22 @@ export class PDFContentExtractor {
     }
   }
 
+  async getPageCount(): Promise<number> {
+    if (!this.document) {
+      throw new Error('Document not loaded');
+    }
+    return this.document.numPages;
+  }
+
   async extractContent(url: string): Promise<string> {
     try {
       const doc = await this.loadDocument(url);
-      console.log(`📄 Extracting content from ${doc.numPages} pages`);
+      const pageCount = await this.getPageCount();
+      console.log(`📄 Extracting content from ${pageCount} pages`);
       
       let fullContent = '';
-      for (let i = 1; i <= doc.numPages; i++) {
-        const pageContent = await this.extractPageContent(url, i);
+      for (let i = 1; i <= pageCount; i++) {
+        const pageContent = await this.getPageContent(i);
         fullContent += pageContent + '\n\n';
       }
 
@@ -46,12 +54,8 @@ export class PDFContentExtractor {
     }
   }
 
-  async extractPageContent(url: string, pageNumber: number): Promise<string> {
+  async getPageContent(pageNumber: number): Promise<string> {
     try {
-      if (!this.document) {
-        await this.loadDocument(url);
-      }
-
       if (!this.document) {
         throw new Error('Document not loaded');
       }
