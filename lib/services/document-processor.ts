@@ -25,6 +25,8 @@ export class DocumentProcessor {
   private currentDocument: PDFDocument | null = null;
   
   public conceptGenerator: ConceptGenerator;
+  private readonly BATCH_SIZE = 5;
+  private processedPages: Set<number> = new Set();
 
   constructor() {
     if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
@@ -401,5 +403,47 @@ export class DocumentProcessor {
     });
 
     return bestMatch;
+  }
+
+  async processDocumentForConcepts(pages: { content: string; pageNumber: number }[], depthLevel: DepthLevel): Promise<Concept[]> {
+    console.log('[DocumentProcessor] Processing', pages.length, 'pages for concepts');
+    
+    const allConcepts: Concept[] = [];
+    const batches: { content: string; pageNumber: number }[][] = [];
+    
+    // Create batches of pages
+    for (let i = 0; i < pages.length; i += this.BATCH_SIZE) {
+      batches.push(pages.slice(i, i + this.BATCH_SIZE));
+    }
+    
+    // Process each batch
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const batchPages = batch.map(p => p.pageNumber);
+      
+      // Skip if all pages in batch are already processed
+      if (batch.every(page => this.processedPages.has(page.pageNumber))) {
+        continue;
+      }
+      
+      console.log(`[DocumentProcessor] Processing batch ${i + 1}, pages ${Math.min(...batchPages)}-${Math.max(...batchPages)}`);
+      
+      try {
+        const concepts = await this.conceptGenerator.generateConceptsForBatch(batch, depthLevel);
+        allConcepts.push(...concepts);
+        
+        // Mark pages as processed
+        batch.forEach(page => this.processedPages.add(page.pageNumber));
+      } catch (error) {
+        console.error(`Error processing batch ${i + 1}:`, error);
+        throw error;
+      }
+    }
+    
+    return allConcepts;
+  }
+
+  resetProcessedPages() {
+    this.processedPages.clear();
   }
 } 

@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useConceptsStore } from '@/lib/store/concepts-store';
 import { useDocumentStore } from '@/lib/store/document-store';
 import { ConceptCard } from './concept-card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface KeyConceptsProps {
   url: string;
@@ -15,162 +16,61 @@ interface KeyConceptsProps {
 }
 
 export function KeyConcepts({ url, currentPage, onPageChange }: KeyConceptsProps) {
-  const [error, setError] = useState<string | null>(null);
-  
-  const {
-    currentDocument,
-    isProcessing: isProcessingDocument,
-    processDocument,
-    processor
-  } = useDocumentStore();
-
   const {
     concepts,
     currentDepthLevel,
     isGenerating,
-    generatedPages,
-    addConcepts,
+    error,
     setIsGenerating,
-    markPageAsGenerated,
-    getConceptsByPage
+    addConcepts,
+    setDepthLevel,
   } = useConceptsStore();
 
-  // Add initial state check
+  const [localError, setLocalError] = useState<string | null>(null);
+
   useEffect(() => {
-    // Reset isGenerating on mount
-    setIsGenerating(false);
-    
-    return () => {
-      // Cleanup on unmount
-      setIsGenerating(false);
-    };
-  }, []);
+    // Reset error state when depth level changes
+    setLocalError(null);
+  }, [currentDepthLevel]);
 
-  // Process document and generate concepts
-  useEffect(() => {
-    if (!url) return;
-
-    const processAndGenerate = async () => {
-      try {
-        // Process document if needed
-        if (!currentDocument || currentDocument.url !== url) {
-          console.log('Starting document processing...');
-          const doc = await processDocument(url, 'document.pdf');
-          if (!doc || !doc.pages?.length) {
-            throw new Error('Document processing failed or document is empty');
-          }
-          console.log('Document processing completed with doc:', doc);
-        }
-
-        // Generate concepts for all pages if not already generated
-        if (!isGenerating && processor && currentDocument?.pages) {
-          // Check if we already have concepts for this depth level
-          const existingConcepts = currentDocument.pages.every(page => 
-            getConceptsByPage(page.pageNumber).some(c => c.depthLevel === currentDepthLevel)
-          );
-
-          if (existingConcepts) {
-            console.log('All pages already have concepts for depth level:', currentDepthLevel);
-            return;
-          }
-
-          console.log('Starting concept generation for all pages with depth:', currentDepthLevel);
-          setIsGenerating(true);
-          
-          try {
-            // Generate concepts for all pages at once
-            const allConcepts = await processor.generateConcepts(-1, currentDepthLevel);
-            console.log('Generated concepts for all pages:', allConcepts);
-            
-            if (allConcepts && allConcepts.length > 0) {
-              // Group concepts by page
-              const conceptsByPage = allConcepts.reduce((acc, concept) => {
-                const pageNum = concept.pageNumber;
-                if (!acc[pageNum]) acc[pageNum] = [];
-                acc[pageNum].push(concept);
-                return acc;
-              }, {} as Record<number, typeof allConcepts>);
-
-              // Add concepts and mark pages as generated
-              Object.entries(conceptsByPage).forEach(([pageNum, concepts]) => {
-                addConcepts(concepts);
-                markPageAsGenerated(Number(pageNum));
-              });
-
-              console.log('Successfully added concepts for all pages');
-            } else {
-              console.warn('No concepts were generated');
-              setError('No concepts could be generated for this document');
-            }
-          } catch (err) {
-            console.error('Concept generation error:', err);
-            setError(err instanceof Error ? err.message : 'Failed to generate concepts');
-          } finally {
-            setIsGenerating(false);
-          }
-        }
-      } catch (err) {
-        console.error('Document processing error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to process document');
-        setIsGenerating(false);
-      }
-    };
-
-    processAndGenerate();
-  }, [url, currentDocument, processor, currentDepthLevel, processDocument, addConcepts, markPageAsGenerated, getConceptsByPage]);
-
-  // Add error display
-  if (error) {
+  if (isGenerating) {
     return (
-      <div className="p-4 text-destructive">
-        <h3 className="font-medium mb-2">Error</h3>
-        <p className="text-sm">{error}</p>
+      <div className="flex flex-col items-center justify-center p-8 space-y-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <p className="text-muted-foreground">Generating concepts...</p>
       </div>
     );
   }
 
-  // Add loading state
-  if (isProcessingDocument || isGenerating) {
+  if (localError || error) {
     return (
-      <div className="p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-muted rounded w-3/4"></div>
-          <div className="h-4 bg-muted rounded w-1/2"></div>
-          <div className="h-4 bg-muted rounded w-2/3"></div>
+      <div className="flex flex-col items-center justify-center p-8 space-y-4">
+        <div className="text-destructive">
+          <p className="font-semibold">Error</p>
+          <p className="text-sm">{localError || error}</p>
         </div>
       </div>
     );
   }
 
-  const currentConcepts = getConceptsByPage(currentPage);
+  if (!concepts.length) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 space-y-4">
+        <p className="text-muted-foreground">No concepts generated yet.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto p-6">
-        <AnimatePresence mode="sync">
-          {currentConcepts.length > 0 ? (
-            <div className="space-y-6">
-              {currentConcepts.map((concept) => (
-                <ConceptCard 
-                  key={concept.id} 
-                  concept={concept}
-                  onSelect={onPageChange}
-                />
-              ))}
-            </div>
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center h-full text-muted-foreground"
-            >
-              <Sparkles className="h-12 w-12 mb-4" />
-              <p>No concepts generated yet</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+    <ScrollArea className="h-full w-full">
+      <div className="p-6 space-y-6">
+        {concepts
+          .filter(concept => concept.depthLevel === currentDepthLevel)
+          .sort((a, b) => b.metadata.importance - a.metadata.importance)
+          .map(concept => (
+            <ConceptCard key={concept.id} concept={concept} />
+          ))}
       </div>
-    </div>
+    </ScrollArea>
   );
 }
