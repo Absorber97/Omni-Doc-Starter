@@ -1,70 +1,91 @@
-import * as pdfjsLib from 'pdfjs-dist';
-import { PDFDocumentProxy } from 'pdfjs-dist';
+import * as pdfjs from 'pdfjs-dist';
+import { TextItem } from 'pdfjs-dist/types/src/display/api';
 
-// Initialize PDF.js worker
-const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Ensure PDF.js worker is loaded
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+}
 
 export class PDFContentExtractor {
-  private pdfDocument: PDFDocumentProxy | null = null;
-  private loadingPromise: Promise<void> | null = null;
+  private loadingTask: pdfjs.PDFDocumentLoadingTask | null = null;
+  private document: pdfjs.PDFDocumentProxy | null = null;
 
-  async loadDocument(url: string) {
-    if (this.loadingPromise) {
-      console.log('[PDFExtractor] Waiting for existing load to complete');
-      await this.loadingPromise;
-      return;
-    }
-
-    console.log('[PDFExtractor] Loading document:', url);
-    this.loadingPromise = new Promise<void>(async (resolve, reject) => {
-      try {
-        this.pdfDocument = await pdfjsLib.getDocument(url).promise;
-        console.log('[PDFExtractor] Document loaded successfully');
-        resolve();
-      } catch (error) {
-        console.error('[PDFExtractor] Error loading PDF:', error);
-        reject(error);
-      } finally {
-        this.loadingPromise = null;
-      }
-    });
-
-    await this.loadingPromise;
+  constructor() {
+    console.log('🔄 Initializing PDFContentExtractor');
   }
 
-  async getPageContent(pageNumber: number): Promise<string> {
-    if (this.loadingPromise) {
-      console.log('[PDFExtractor] Waiting for document to load');
-      await this.loadingPromise;
-    }
-
-    if (!this.pdfDocument) {
-      console.error('[PDFExtractor] PDF document not loaded');
-      throw new Error('PDF document not loaded');
-    }
-
+  async loadDocument(url: string) {
     try {
-      console.log(`[PDFExtractor] Extracting content from page ${pageNumber}`);
-      const page = await this.pdfDocument.getPage(pageNumber);
-      const textContent = await page.getTextContent();
-      const content = textContent.items
-        .map((item: any) => item.str)
-        .join(' ')
-        .trim();
-      
-      console.log(`[PDFExtractor] Extracted ${content.length} characters`);
-      return content;
+      console.log('📑 Loading PDF document');
+      this.loadingTask = pdfjs.getDocument(url);
+      this.document = await this.loadingTask.promise;
+      console.log('✅ PDF document loaded successfully');
+      return this.document;
     } catch (error) {
-      console.error(`[PDFExtractor] Error extracting content from page ${pageNumber}:`, error);
+      console.error('❌ Error loading PDF:', error);
+      throw new Error('Failed to load PDF document');
+    }
+  }
+
+  async extractContent(url: string): Promise<string> {
+    try {
+      const doc = await this.loadDocument(url);
+      console.log(`📄 Extracting content from ${doc.numPages} pages`);
+      
+      let fullContent = '';
+      for (let i = 1; i <= doc.numPages; i++) {
+        const pageContent = await this.extractPageContent(url, i);
+        fullContent += pageContent + '\n\n';
+      }
+
+      console.log('✨ Content extraction complete');
+      return fullContent.trim();
+    } catch (error) {
+      console.error('❌ Error extracting content:', error);
       throw error;
     }
   }
 
-  async getPageCount(): Promise<number> {
-    if (!this.pdfDocument) {
-      throw new Error('PDF document not loaded');
+  async extractPageContent(url: string, pageNumber: number): Promise<string> {
+    try {
+      if (!this.document) {
+        await this.loadDocument(url);
+      }
+
+      if (!this.document) {
+        throw new Error('Document not loaded');
+      }
+
+      console.log(`📄 Extracting content from page ${pageNumber}`);
+      const page = await this.document.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      
+      // Process and combine text items
+      const content = textContent.items
+        .filter((item): item is TextItem => 'str' in item)
+        .map(item => item.str)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      return content;
+    } catch (error) {
+      console.error(`❌ Error extracting content from page ${pageNumber}:`, error);
+      throw error;
     }
-    return this.pdfDocument.numPages;
+  }
+
+  async cleanup() {
+    try {
+      if (this.document) {
+        console.log('🧹 Cleaning up PDF document');
+        await this.document.cleanup();
+        await this.document.destroy();
+        this.document = null;
+        this.loadingTask = null;
+      }
+    } catch (error) {
+      console.error('❌ Error during cleanup:', error);
+    }
   }
 }
