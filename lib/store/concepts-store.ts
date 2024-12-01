@@ -16,6 +16,9 @@ export interface Concept {
   location?: {
     textSnippet: string;
   };
+  metadata?: {
+    vectorId?: string;
+  };
 }
 
 interface ConceptsState {
@@ -46,28 +49,48 @@ export const useConceptsStore = create<ConceptsState>()(
     (set, get) => ({
       ...initialState,
 
-      addConcepts: (concepts) => 
-        set({ concepts: [...get().concepts, ...concepts] }),
+      addConcepts: (concepts) => {
+        const existingConcepts = get().concepts;
+        if (existingConcepts.length > 0) {
+          console.log('🧠 Reusing existing concepts:', existingConcepts.length, 'concepts');
+          return;
+        }
+        console.log('Adding new concepts:', concepts.length, 'concepts');
+        set({ concepts: [...existingConcepts, ...concepts] });
+      },
 
-      highlightConcept: (id) => 
-        set({ highlightedConceptId: id }),
+      highlightConcept: (id) => {
+        console.log('Highlighting concept:', id);
+        set({ highlightedConceptId: id });
+      },
         
-      selectConcept: (id) => 
-        set({ selectedConceptId: id }),
+      selectConcept: (id) => {
+        console.log('Selecting concept:', id);
+        set({ selectedConceptId: id });
+      },
 
       findSimilarConcepts: async (conceptId, embeddingsStore) => {
+        console.log('🔍 Finding similar concepts for:', conceptId);
         const concept = get().concepts.find(c => c.id === conceptId);
-        if (!concept?.metadata?.vectorId) return [];
+        if (!concept?.metadata?.vectorId) {
+          console.log('No vector ID found for concept');
+          return [];
+        }
 
-        const similarVectors = await embeddingsStore.findSimilar(
-          concept.metadata.vectorId,
-          5
-        );
-
-        return get().concepts.filter(c => 
-          c.metadata?.vectorId && 
-          similarVectors.includes(c.metadata.vectorId)
-        );
+        try {
+          const similarVectors = await embeddingsStore.similaritySearch(
+            concept.content,
+            5,
+            0.7
+          );
+          console.log('Found similar concepts:', similarVectors.length);
+          return get().concepts.filter(c => 
+            similarVectors.some(v => v.id === c.metadata?.vectorId)
+          );
+        } catch (error) {
+          console.error('Error finding similar concepts:', error);
+          return [];
+        }
       },
 
       getConceptsByPage: (pageNumber) => 
@@ -76,7 +99,10 @@ export const useConceptsStore = create<ConceptsState>()(
       getConceptById: (id) => 
         get().concepts.find(c => c.id === id),
 
-      reset: () => set(initialState),
+      reset: () => {
+        console.log('🗑️ Resetting concepts store to initial state');
+        set(initialState);
+      },
     }),
     {
       name: 'concepts-storage',

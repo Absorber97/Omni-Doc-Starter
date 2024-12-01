@@ -31,7 +31,12 @@ export const useTOCStore = create<TOCState>()(
       ...initialState,
       
       setItems: (items) => {
-        console.log('Setting TOC items:', items.length, 'items');
+        const existingItems = get().items;
+        if (existingItems.length > 0) {
+          console.log('📚 Reusing existing TOC data:', existingItems.length, 'items');
+        } else {
+          console.log('Generating new TOC data:', items.length, 'items');
+        }
         set({ items, isGenerated: true });
       },
       
@@ -46,7 +51,12 @@ export const useTOCStore = create<TOCState>()(
       },
       
       setAIProcessedItems: (items) => {
-        console.log('Setting AI processed TOC items:', items.length, 'items');
+        const existingAIItems = get().aiProcessedItems;
+        if (existingAIItems.length > 0) {
+          console.log('🤖 Reusing AI-processed TOC:', existingAIItems.length, 'items');
+        } else {
+          console.log('Setting new AI-processed TOC:', items.length, 'items');
+        }
         set({ aiProcessedItems: items, isAIProcessed: true });
       },
       
@@ -70,7 +80,7 @@ export const useTOCStore = create<TOCState>()(
         get().expandedItems.includes(title),
       
       reset: () => {
-        console.log('Resetting TOC store to initial state');
+        console.log('🗑️ Resetting TOC store to initial state');
         set(initialState);
       },
     }),
