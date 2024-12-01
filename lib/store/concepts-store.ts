@@ -6,26 +6,15 @@ export type ConceptType = 'must-know' | 'good-to-know' | 'optional';
 
 export interface Concept {
   id: string;
-  text: string;
+  title: string;
+  emoji: string;
+  content: string;
   type: ConceptType;
+  tags: string[];
   pageNumber: number;
-  location: {
-    pageNumber: number;
-    boundingBox?: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    };
+  relevanceScore: number;
+  location?: {
     textSnippet: string;
-  };
-  metadata?: {
-    confidence: number;
-    keywords: string[];
-    vectorId?: string;
-    relatedConcepts?: string[]; // IDs of related concepts
-    importance: number; // 0-1 score
-    sourceContext: string;
   };
 }
 

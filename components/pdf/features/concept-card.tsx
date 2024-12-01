@@ -6,94 +6,88 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Concept, ConceptType } from '@/lib/store/concepts-store';
-import { pdfViewerConfig } from '@/config/pdf-viewer';
 
 interface ConceptCardProps {
   concept: Concept;
-  isHighlighted: boolean;
-  isSelected: boolean;
-  onClick: () => void;
-  onHover: (hover: boolean) => void;
 }
 
-const conceptConfig = pdfViewerConfig.features.ai.features.concepts.types;
-
-const conceptIcons: Record<ConceptType, typeof Star> = {
-  'must-know': Star,
-  'good-to-know': Lightbulb,
-  'optional': Bookmark,
+const typeConfig: Record<ConceptType, { 
+  icon: typeof Star; 
+  label: string;
+  color: string;
+  badgeVariant: "default" | "destructive" | "secondary" | "outline" 
+}> = {
+  'must-know': { 
+    icon: Star, 
+    label: 'Must Know',
+    color: 'bg-card hover:bg-card/80 border-2 border-red-500/20', 
+    badgeVariant: "destructive"
+  },
+  'good-to-know': { 
+    icon: Lightbulb, 
+    label: 'Good to Know',
+    color: 'bg-card hover:bg-card/80 border-2 border-yellow-500/20',
+    badgeVariant: "default"
+  },
+  'optional': { 
+    icon: Bookmark, 
+    label: 'Optional',
+    color: 'bg-card hover:bg-card/80 border-2 border-blue-500/20',
+    badgeVariant: "secondary"
+  }
 };
 
-export function ConceptCard({ 
-  concept, 
-  isHighlighted,
-  isSelected,
-  onClick, 
-  onHover 
-}: ConceptCardProps) {
-  const typeConfig = conceptConfig[concept.type];
-  const Icon = conceptIcons[concept.type];
+export function ConceptCard({ concept }: ConceptCardProps) {
+  const { icon: Icon, label, color, badgeVariant } = typeConfig[concept.type];
 
   return (
-    <motion.div
-      layoutId={concept.id}
-      onHoverStart={() => onHover(true)}
-      onHoverEnd={() => onHover(false)}
-      onClick={onClick}
-    >
-      <Card 
-        className={cn(
-          "p-3 cursor-pointer transition-all",
-          "hover:shadow-md hover:-translate-y-0.5",
-          isHighlighted && "ring-2 ring-primary",
-          isSelected && "bg-primary/5",
-          typeConfig.color
-        )}
-      >
-        <div className="flex items-start gap-2">
-          <Icon className="h-4 w-4 mt-1 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm leading-relaxed">{concept.text}</p>
-            
-            {/* Metadata section */}
-            <div className="mt-2 space-y-2">
-              {/* Keywords */}
-              {concept.metadata?.keywords && (
-                <div className="flex flex-wrap gap-1">
-                  {concept.metadata.keywords.map((keyword) => (
-                    <Badge 
-                      key={keyword}
-                      variant="secondary" 
-                      className="text-xs"
-                    >
-                      {keyword}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              
-              {/* Context preview */}
-              {concept.location?.textSnippet && (
-                <p className="text-xs text-muted-foreground line-clamp-2 italic">
-                  "{concept.location.textSnippet}"
-                </p>
-              )}
-
-              {/* Page indicator */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-xs">
-                  Page {concept.pageNumber}
+    <Card className={cn("p-6 transition-colors", color)}>
+      <div className="flex flex-col gap-4">
+        {/* Title with emoji */}
+        <div className="flex items-start gap-3">
+          <h3 className="text-xl font-medium">
+            {concept.emoji} {concept.title}
+          </h3>
+        </div>
+        
+        {/* Content */}
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {concept.content}
+        </p>
+        
+        {/* Footer: Tags, Type and Page */}
+        <div className="flex flex-col gap-3">
+          {/* Tags */}
+          {concept.tags && concept.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {concept.tags.map((tag) => (
+                <Badge 
+                  key={tag} 
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 font-normal text-muted-foreground"
+                >
+                  {tag}
                 </Badge>
-                {concept.metadata?.importance && (
-                  <span className="text-xs">
-                    Importance: {Math.round(concept.metadata.importance * 100)}%
-                  </span>
-                )}
-              </div>
+              ))}
             </div>
+          )}
+
+          {/* Type and Page badges */}
+          <div className="flex items-center gap-2">
+            <Badge variant={badgeVariant} className="flex items-center gap-1">
+              <Icon className="h-3 w-3" />
+              <span>{label}</span>
+            </Badge>
+            
+            <Badge 
+              variant="outline" 
+              className="text-xs font-normal text-muted-foreground"
+            >
+              Page {concept.pageNumber}
+            </Badge>
           </div>
         </div>
-      </Card>
-    </motion.div>
+      </div>
+    </Card>
   );
 } 

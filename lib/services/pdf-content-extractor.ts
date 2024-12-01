@@ -1,3 +1,10 @@
+import * as pdfjsLib from 'pdfjs-dist';
+import { PDFDocumentProxy } from 'pdfjs-dist';
+
+// Initialize PDF.js worker
+const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
 export class PDFContentExtractor {
   private pdfDocument: PDFDocumentProxy | null = null;
   private loadingPromise: Promise<void> | null = null;
@@ -52,5 +59,12 @@ export class PDFContentExtractor {
       console.error(`[PDFExtractor] Error extracting content from page ${pageNumber}:`, error);
       throw error;
     }
+  }
+
+  async getPageCount(): Promise<number> {
+    if (!this.pdfDocument) {
+      throw new Error('PDF document not loaded');
+    }
+    return this.pdfDocument.numPages;
   }
 }
