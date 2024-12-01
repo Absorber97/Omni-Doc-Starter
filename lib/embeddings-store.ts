@@ -1,13 +1,10 @@
 'use client';
 
 import OpenAI from 'openai';
-import { pdfViewerConfig } from '@/config/pdf-viewer';
+import { openAIConfig, openAIClientConfig } from '@/config/openai';
 
 // Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+const openai = new OpenAI(openAIClientConfig);
 
 export class EmbeddingsStore {
   private static instance: EmbeddingsStore;
@@ -40,7 +37,7 @@ export class EmbeddingsStore {
   ) {
     try {
       const response = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
+        model: openAIConfig.embeddingModel,
         input: content,
         encoding_format: 'float',
       });
@@ -69,7 +66,7 @@ export class EmbeddingsStore {
   ) {
     try {
       const queryEmbedding = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
+        model: openAIConfig.embeddingModel,
         input: query,
         encoding_format: 'float',
       });

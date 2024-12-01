@@ -1,6 +1,9 @@
 import { TOCItem } from '@/lib/types/pdf';
 import OpenAI from 'openai';
-import { pdfViewerConfig } from '@/config/pdf-viewer';
+import { openAIConfig, openAIClientConfig } from '@/config/openai';
+
+// Initialize OpenAI client
+const openai = new OpenAI(openAIClientConfig);
 
 export class TOCProcessor {
   private static readonly HEADING_PATTERNS = [

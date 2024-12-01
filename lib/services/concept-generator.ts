@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { openAIConfig, openAIClientConfig } from '@/config/openai';
 import { Concept, ConceptType } from '@/lib/store/concepts-store';
 import { v4 as uuidv4 } from 'uuid';
 import { PDFContentExtractor } from './pdf-content-extractor';
@@ -9,21 +10,14 @@ interface ConceptGenerationOptions {
   includeContext?: boolean;
 }
 
+// Initialize OpenAI client
+const openai = new OpenAI(openAIClientConfig);
+
 export class ConceptGenerator {
-  private openai: OpenAI;
   private contentExtractor: PDFContentExtractor;
 
   constructor() {
     console.log('[ConceptGenerator] Initializing');
-    if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
-      console.error('[ConceptGenerator] OpenAI API key not found');
-      throw new Error('OpenAI API key is required');
-    }
-
-    this.openai = new OpenAI({
-      apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-      dangerouslyAllowBrowser: true
-    });
     this.contentExtractor = new PDFContentExtractor();
     console.log('[ConceptGenerator] Initialized successfully');
   }
@@ -134,8 +128,8 @@ export class ConceptGenerator {
               logger.info(`Generating ${targetConceptCount} concepts for page ${pageNum}`);
               
               const prompt = this.generatePrompt(content, targetConceptCount);
-              const response = await this.openai.chat.completions.create({
-                model: 'gpt-4-turbo-preview',
+              const response = await openai.chat.completions.create({
+                model: openAIConfig.model,
                 messages: [
                   { 
                     role: 'system', 
