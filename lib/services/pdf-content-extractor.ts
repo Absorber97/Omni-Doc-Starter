@@ -1,9 +1,11 @@
 import * as pdfjs from 'pdfjs-dist';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
 
-// Ensure PDF.js worker is loaded
+// Configure PDF.js worker
 if (typeof window !== 'undefined') {
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+  console.log('🔧 Configuring PDF.js worker');
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 }
 
 export class PDFContentExtractor {
@@ -16,8 +18,12 @@ export class PDFContentExtractor {
 
   async loadDocument(url: string) {
     try {
-      console.log('📑 Loading PDF document');
-      this.loadingTask = pdfjs.getDocument(url);
+      console.log('📑 Loading PDF document:', url);
+      this.loadingTask = pdfjs.getDocument({
+        url,
+        // Use standard fonts to avoid loading external resources
+        standardFontDataUrl: `node_modules/pdfjs-dist/standard_fonts/`
+      });
       this.document = await this.loadingTask.promise;
       console.log('✅ PDF document loaded successfully');
       return this.document;

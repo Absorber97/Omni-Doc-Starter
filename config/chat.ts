@@ -4,7 +4,10 @@ export interface ChatMessage {
   content: string;
   metadata?: {
     confidence?: number;
-    sources?: string[];
+    sources?: Array<{
+      content: string;
+      pageNumber: number;
+    }>;
   };
 }
 

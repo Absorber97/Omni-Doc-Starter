@@ -53,7 +53,7 @@
     "next-themes": "^0.4.3",
     "openai": "^4.73.1",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^4.0.379",
+    "pdfjs-dist": "^3.11.174",
     "react": "^18",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18",

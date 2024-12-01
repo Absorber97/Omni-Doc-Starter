@@ -27,7 +27,7 @@ export function Chat({ url }: ChatProps) {
       exit={{ opacity: 0 }}
       className="flex flex-col h-full"
     >
-      <Card className="flex-1 p-4 flex flex-col">
+      <div className="flex-1 p-4 flex flex-col h-full">
         {!isInitialized && isLoading ? (
           <motion.div 
             className="flex flex-col items-center justify-center h-full gap-4"
@@ -42,7 +42,7 @@ export function Chat({ url }: ChatProps) {
         ) : (
           <ChatInterface />
         )}
-      </Card>
+      </div>
     </motion.div>
   );
 }

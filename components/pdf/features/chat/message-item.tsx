@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ChatMessage } from '@/config/chat';
 import { cn } from '@/lib/utils';
 import { Bot, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -37,13 +38,19 @@ export function MessageItem({ message }: MessageItemProps) {
             : 'bg-primary text-primary-foreground'
         )}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-        
-        {isAssistant && message.metadata?.confidence && (
-          <div className="mt-1 text-xs opacity-50">
-            Confidence: {Math.round(message.metadata.confidence * 100)}%
-          </div>
-        )}
+        <ReactMarkdown
+          className="text-sm prose dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 max-w-none"
+          components={{
+            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+            ul: ({ children }) => <ul className="mb-2 list-disc pl-4">{children}</ul>,
+            li: ({ children }) => <li className="mb-1">{children}</li>,
+            h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+            h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
+            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
       </div>
     </motion.div>
   );
