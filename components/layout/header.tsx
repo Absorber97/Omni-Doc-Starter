@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { FileText, Upload } from 'lucide-react';
+import { BookOpenCheck, Upload } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { appConfig } from '@/config/app';
@@ -28,11 +28,11 @@ export function Header() {
               animate={{ rotate: 0 }}
               transition={{ type: "spring", stiffness: 200 }}
             >
-              <FileText className="h-6 w-6 text-primary" />
+              <BookOpenCheck className="h-6 w-6 text-primary" />
             </motion.div>
             <span className="text-lg font-bold tracking-tight">
               OmniDoc
-              <span className="ml-1 text-primary">{appConfig.emoji.ai}</span>
+              <span className="ml-1 text-primary">{appConfig.emoji.magic}</span>
             </span>
           </Link>
         </div>

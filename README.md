@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OmniDoc - AI-Powered PDF Analysis Tool
 
-## Getting Started
+OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that combines modern document viewing capabilities with AI-powered features for enhanced document understanding.
 
-First, run the development server:
+## 🌟 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Advanced PDF Viewing**
+  - Modern, responsive PDF viewer with intuitive controls
+  - Dynamic Table of Contents generation
+  - Page thumbnails for quick navigation
+  - Collapsible sidebar for better workspace management
+
+- **AI-Powered Analysis**
+  - **Key Concepts Highlighting**: Automatically identifies and categorizes important concepts
+  - **Smart Summaries**: Generates concise, structured summaries of document sections
+  - **Interactive Flashcards**: Auto-generated study aids from document content
+  - **Context-Aware Chat**: Intelligent document-based Q&A with citations
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- OpenAI API key
+- Modern web browser (Chrome, Firefox, Safari)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/omnidoc.git
+   cd omnidoc
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Add your OpenAI API key to the `.env` file:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 14, React, TypeScript
+- **Styling**: Tailwind CSS, ShadcnUI
+- **State Management**: Zustand
+- **PDF Processing**: PDF.js
+- **AI Integration**: OpenAI API
+- **Animations**: Framer Motion
+
+## 📁 Project Structure
+
+```
+src/
+├── app/                 # Next.js app router
+├── components/          # React components
+├── lib/                 # Utility functions
+├── stores/             # Zustand stores
+└── types/              # TypeScript types
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🤝 Contributing
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📝 License
 
-## Learn More
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-To learn more about Next.js, take a look at the following resources:
+## 🙏 Acknowledgments
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [PDF.js](https://mozilla.github.io/pdf.js/) for PDF rendering
+- [OpenAI](https://openai.com/) for AI capabilities
+- [ShadcnUI](https://ui.shadcn.com/) for UI components

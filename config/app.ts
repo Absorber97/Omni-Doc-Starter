@@ -21,6 +21,7 @@ export const appConfig = {
     upload: "📄",
     edit: "✏️",
     ai: "🤖",
+    magic: "🔮",
     flashcard: "🎴",
     summary: "📝",
     concept: "💡",
