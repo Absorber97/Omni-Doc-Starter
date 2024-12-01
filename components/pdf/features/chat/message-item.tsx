@@ -20,33 +20,41 @@ export function MessageItem({ message }: MessageItemProps) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       className={cn(
-        'flex gap-3 mb-4',
+        'flex gap-4 mb-6 last:mb-0',
         isAssistant ? 'flex-row' : 'flex-row-reverse'
       )}
     >
-      <Avatar className="w-8 h-8">
-        <AvatarFallback>
-          {isAssistant ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+      <Avatar className="w-10 h-10 mt-1 shrink-0">
+        <AvatarFallback className="bg-primary/10">
+          {isAssistant ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
         </AvatarFallback>
       </Avatar>
 
       <div
         className={cn(
-          'flex-1 px-4 py-2 rounded-lg',
+          'flex-1 px-6 py-4 rounded-lg',
           isAssistant
-            ? 'bg-secondary text-secondary-foreground'
+            ? 'bg-secondary/50'
             : 'bg-primary text-primary-foreground'
         )}
       >
         <ReactMarkdown
-          className="text-sm prose dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 max-w-none"
+          className={cn(
+            "text-base prose dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 max-w-none",
+            "prose-headings:mb-3 prose-headings:mt-6 first:prose-headings:mt-0",
+            "prose-p:mb-3 prose-p:last:mb-0",
+            "prose-ul:my-3 prose-li:my-1",
+            "prose-strong:font-semibold",
+            "prose-code:px-1 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-muted",
+          )}
           components={{
-            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-            ul: ({ children }) => <ul className="mb-2 list-disc pl-4">{children}</ul>,
-            li: ({ children }) => <li className="mb-1">{children}</li>,
-            h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-            h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
+            p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+            ul: ({ children }) => <ul className="my-3 list-disc pl-4">{children}</ul>,
+            li: ({ children }) => <li className="my-1">{children}</li>,
+            h1: ({ children }) => <h1 className="text-xl font-bold mb-3 mt-6 first:mt-0">{children}</h1>,
+            h2: ({ children }) => <h2 className="text-lg font-semibold mb-3 mt-6 first:mt-0">{children}</h2>,
             strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+            code: ({ children }) => <code className="px-1 py-0.5 rounded-md bg-muted">{children}</code>,
           }}
         >
           {message.content}

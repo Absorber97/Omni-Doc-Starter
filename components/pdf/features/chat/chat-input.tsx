@@ -40,7 +40,7 @@ export function ChatInput({ onSubmit, isLoading, className }: ChatInputProps) {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn('flex gap-2', className)}
+      className={cn('flex gap-3', className)}
     >
       <Textarea
         ref={textareaRef}
@@ -48,7 +48,7 @@ export function ChatInput({ onSubmit, isLoading, className }: ChatInputProps) {
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Ask a question about the document..."
-        className="min-h-[50px] max-h-[200px] resize-none"
+        className="min-h-[60px] max-h-[200px] resize-none text-base p-4"
         disabled={isLoading}
       />
       
@@ -56,11 +56,12 @@ export function ChatInput({ onSubmit, isLoading, className }: ChatInputProps) {
         onClick={handleSubmit}
         disabled={!message.trim() || isLoading}
         size="icon"
+        className="h-[60px] w-[60px] shrink-0"
       >
         {isLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 className="w-5 h-5 animate-spin" />
         ) : (
-          <Send className="w-4 h-4" />
+          <Send className="w-5 h-5" />
         )}
       </Button>
     </motion.div>

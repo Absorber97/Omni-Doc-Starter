@@ -25,12 +25,12 @@ export function Chat({ url }: ChatProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col h-full"
+      className="flex flex-col h-full max-w-5xl mx-auto w-full"
     >
-      <div className="flex-1 p-4 flex flex-col h-full">
+      <div className="flex-1 p-6 flex flex-col h-full">
         {!isInitialized && isLoading ? (
           <motion.div 
-            className="flex flex-col items-center justify-center h-full gap-4"
+            className="flex flex-col items-center justify-center h-full gap-4 p-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
@@ -40,7 +40,9 @@ export function Chat({ url }: ChatProps) {
             </p>
           </motion.div>
         ) : (
-          <ChatInterface />
+          <Card className="flex-1 flex flex-col overflow-hidden border-none bg-background/50 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+            <ChatInterface />
+          </Card>
         )}
       </div>
     </motion.div>
