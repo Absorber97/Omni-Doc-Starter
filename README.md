@@ -11,9 +11,14 @@ OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that com
   - Smooth zooming and panning controls
   - Multiple view modes (single page, continuous, etc.)
   - Dark mode focus
+
+![Upload](https://github.com/Absorber97/Omni-Doc-Starter/blob/main/assets/Upload.png)
+
 - **Smart Navigation**
   - Dynamic Table of Contents generation and navigation
   - Interactive page thumbnails for quick browsing
+
+![Navigation](https://github.com/Absorber97/Omni-Doc-Starter/blob/main/assets/Navigation.png)
 
 ### 🤖 AI-Powered Analysis
 - **Key Concepts Highlighting**
@@ -21,21 +26,32 @@ OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that com
   - Categorization into "must-know", "good-to-know", and "optional"
   - Interactive concept exploration
   - Visual concept mapping
+
+![Key Concepts](https://github.com/Absorber97/Omni-Doc-Starter/blob/main/assets/Key%20Concepts.png)
+
 - **Smart Summaries**
   - Hierarchical document summarization
   - Section-by-section breakdown
   - Key points extraction
   - Custom summary generation based on focus areas
+
+![Summaries](https://github.com/Absorber97/Omni-Doc-Starter/blob/main/assets/Summary.png)
+
 - **Interactive Flashcards**
   - Auto-generated study materials
   - Spaced repetition system
   - Progress tracking
+ 
+![Flashcards](https://github.com/Absorber97/Omni-Doc-Starter/blob/main/assets/Flashcards.png)
+
 - **Context-Aware Chat**
   - Intelligent document-based Q&A
   - Context-aware smart suggestions
   - Citation support with page references
   - Natural language query processing
   - Multi-document context support
+
+![Chat](https://github.com/Absorber97/Omni-Doc-Starter/blob/main/assets/Chat.png)
 
 ## 🚀 Getting Started
 
