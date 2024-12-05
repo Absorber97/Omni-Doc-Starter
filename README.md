@@ -2,7 +2,6 @@
 
 OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that combines modern document viewing capabilities with AI-powered features for enhanced document understanding and learning. Perfect for students, faculty,researchers, and professionals who need to deeply understand complex documents.
 
-!!! This is a starter version focused on only MVP and scalable foundation for future projects due to time constraints. All the features’ data are stored in local temp browser storage for persistence and performance. If you want to try with a new PDF, try clearing the temp stored data first. !!!
 
 ## 🌟 Key Features
 
@@ -33,6 +32,7 @@ OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that com
   - Progress tracking
 - **Context-Aware Chat**
   - Intelligent document-based Q&A
+  - Context-aware smart suggestions
   - Citation support with page references
   - Natural language query processing
   - Multi-document context support
@@ -230,3 +230,32 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Next.js](https://nextjs.org/) - React framework
 - [Zustand](https://github.com/pmndrs/zustand) - State management
 - [Framer Motion](https://www.framer.com/motion/) - Animations
+
+## 🚨 Current Limitations
+
+This is an MVP (Minimum Viable Product) version focused on establishing a scalable foundation for future development. Due to time constraints, there are several known limitations:
+
+### Storage Limitations
+- All feature data is currently stored in local browser storage for persistence
+- To test with a new PDF, you'll need to clear temporary stored data first
+- No cloud storage integration in this version
+
+### Performance Considerations
+- Each feature requires initial PDF data extraction and embedding process
+- Subsequent uses load from stored temporary data
+- Data flow between features needs optimization for better UX
+- Feature pipeline needs streamlining for better performance
+
+### Device Support
+- Currently optimized for desktop screens only (>1100px width)
+- Shows "not supported" message on smaller screens
+
+### Future Improvement Ideas
+- Cloud-based storage integration
+- Optimized data processing pipeline
+- Responsive design for all screen sizes
+- Streamlined feature data flow
+- Enhanced error handling and recovery
+- Cross-platform support
+
+> **Note**: This project serves as a foundation for future enhancements. While fully functional for its core purpose, it's designed with scalability in mind rather than immediate feature completeness.
