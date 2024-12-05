@@ -1,6 +1,8 @@
-# OmniDoc - AI-Powered Doc Assistant
+# OmniDoc - AI-Powered Doc Starter
 
 OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that combines modern document viewing capabilities with AI-powered features for enhanced document understanding and learning. Perfect for students, faculty,researchers, and professionals who need to deeply understand complex documents.
+
+!!! This is a starter version focused on only MVP and scalable foundation for future projects due to time constraints. All the features’ data are stored in local temp browser storage for persistence and performance. If you want to try with a new PDF, try clearing the temp stored data first. !!!
 
 ## 🌟 Key Features
 
