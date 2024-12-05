@@ -47,9 +47,7 @@ OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that com
 - **Context-Aware Chat**
   - Intelligent document-based Q&A
   - Context-aware smart suggestions
-  - Citation support with page references
   - Natural language query processing
-  - Multi-document context support
 
 ![Chat](https://github.com/Absorber97/Omni-Doc-Starter/blob/main/assets/Chat.png)
 
