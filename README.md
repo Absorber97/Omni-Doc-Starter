@@ -1,89 +1,220 @@
-# OmniDoc - AI-Powered PDF Analysis Tool
+# OmniDoc - AI-Powered Doc Assistant
 
-OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that combines modern document viewing capabilities with AI-powered features for enhanced document understanding.
+OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that combines modern document viewing capabilities with AI-powered features for enhanced document understanding and learning. Perfect for students, faculty,researchers, and professionals who need to deeply understand complex documents.
 
-## 🌟 Features
+## 🌟 Key Features
 
-- **Advanced PDF Viewing**
-  - Modern, responsive PDF viewer with intuitive controls
-  - Dynamic Table of Contents generation
-  - Page thumbnails for quick navigation
-  - Collapsible sidebar for better workspace management
+### 📚 Advanced PDF Viewing
+- **Modern Viewer Interface**
+  - Responsive and intuitive PDF viewing experience
+  - Smooth zooming and panning controls
+  - Multiple view modes (single page, continuous, etc.)
+  - Dark mode focus
+- **Smart Navigation**
+  - Dynamic Table of Contents generation and navigation
+  - Interactive page thumbnails for quick browsing
 
-- **AI-Powered Analysis**
-  - **Key Concepts Highlighting**: Automatically identifies and categorizes important concepts
-  - **Smart Summaries**: Generates concise, structured summaries of document sections
-  - **Interactive Flashcards**: Auto-generated study aids from document content
-  - **Context-Aware Chat**: Intelligent document-based Q&A with citations
+### 🤖 AI-Powered Analysis
+- **Key Concepts Highlighting**
+  - Automatic identification of important concepts
+  - Categorization into "must-know", "good-to-know", and "optional"
+  - Interactive concept exploration
+  - Visual concept mapping
+- **Smart Summaries**
+  - Hierarchical document summarization
+  - Section-by-section breakdown
+  - Key points extraction
+  - Custom summary generation based on focus areas
+- **Interactive Flashcards**
+  - Auto-generated study materials
+  - Spaced repetition system
+  - Progress tracking
+- **Context-Aware Chat**
+  - Intelligent document-based Q&A
+  - Citation support with page references
+  - Natural language query processing
+  - Multi-document context support
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
-- OpenAI API key
-- Modern web browser (Chrome, Firefox, Safari)
+1. **Node.js Installation**
+   - Download from [nodejs.org](https://nodejs.org/)
+   - Verify installation: `node --version`
+
+2. **OpenAI API Key**
+   - Sign up at [OpenAI Platform](https://platform.openai.com/)
+   - Generate API key in your dashboard
 
 ### Installation
 
-1. Clone the repository:
+1. **Clone the Repository**
    ```bash
-   git clone https://github.com/yourusername/omnidoc.git
+   git clone [repo-url]
    cd omnidoc
    ```
 
-2. Install dependencies:
+2. **Install Dependencies**
    ```bash
    npm install
    # or
    yarn install
+   # or
+   pnpm install
    ```
 
-3. Set up environment variables:
+3. **Environment Setup**
    ```bash
    cp .env.example .env
    ```
-   Add your OpenAI API key to the `.env` file:
-   ```
+   Configure your `.env` file:
+   ```env
    OPENAI_API_KEY=your_api_key_here
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   PDF_STORAGE_PATH=./storage/pdfs
+   # Add other necessary environment variables
    ```
 
-4. Start the development server:
+4. **Development Server**
    ```bash
    npm run dev
    # or
    yarn dev
+   # or
+   pnpm dev
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+5. **Access the Application**
+   - Open [http://localhost:3000](http://localhost:3000)
+   - Default login credentials (if applicable)
 
-## 🛠️ Tech Stack
+## 🛠️ Technical Architecture
 
-- **Frontend**: Next.js 14, React, TypeScript
-- **Styling**: Tailwind CSS, ShadcnUI
-- **State Management**: Zustand
-- **PDF Processing**: PDF.js
-- **AI Integration**: OpenAI API
+### Frontend Stack
+- **Framework**: Next.js 14 with React 18
+- **Language**: TypeScript 5.0+
+- **Styling**: 
+  - Tailwind CSS for utility-first styling
+  - CSS Modules for component-specific styles
+- **State Management**: 
+  - Zustand for global state
+  - React Query for server state
+- **PDF Processing**: 
+  - PDF.js for rendering
+  - Custom PDF content extraction
 - **Animations**: Framer Motion
+
+### Key Dependencies
+```json
+{
+  "next": "^14.0.0",
+  "react": "^18.0.0",
+  "typescript": "^5.0.0",
+  "tailwindcss": "^3.0.0",
+  "zustand": "^4.0.0",
+  "pdfjs-dist": "^3.0.0",
+  "framer-motion": "^10.0.0"
+}
+```
 
 ## 📁 Project Structure
 
 ```
-src/
-├── app/                 # Next.js app router
-├── components/          # React components
-├── lib/                 # Utility functions
-├── stores/             # Zustand stores
-└── types/              # TypeScript types
+.
+├── app/                      # Next.js 14 app directory
+│   ├── editor/              # PDF editor pages
+│   ├── upload/              # File upload pages
+│   ├── fonts/               # Custom font files
+│   ├── globals.css          # Global styles
+│   ├── layout.tsx           # Root layout component
+│   └── page.tsx             # Home page component
+│
+├── components/              # React components
+│   ├── ai/                 # AI-related components
+│   ├── layout/             # Layout components
+│   ├── pdf/                # PDF viewer components
+│   └── ui/                 # Reusable UI components
+│
+├── lib/                    # Core library code
+│   ├── api/               # API integration
+│   ├── hooks/             # Custom React hooks
+│   ├── services/          # Service layer
+│   ├── store/             # State management
+│   ├── types/             # TypeScript types
+│   ├── utils/             # Utility functions
+│   ├── constants.ts       # Global constants
+│   ├── embeddings-store.ts # Embeddings management
+│   ├── pdf-processing.ts  # PDF processing logic
+│   └── utils.ts           # General utilities
+│
+├── config/                 # Configuration files
+├── hooks/                  # Global hooks
+├── public/                 # Static assets
+├── scripts/               # Build/deployment scripts
+├── styles/                # Global styles
+├── types/                 # Global TypeScript types
+│
+├── .env.example           # Environment variables template
+├── .env.local            # Local environment variables
+├── components.json       # UI components config
+├── next.config.js        # Next.js configuration
+├── package.json          # Project dependencies
+├── postcss.config.mjs    # PostCSS configuration
+├── tailwind.config.ts    # Tailwind CSS configuration
+└── tsconfig.json         # TypeScript configuration
 ```
+
+### Key Directories
+
+- **`app/`**: Next.js 14 app router implementation with page components and layouts
+- **`components/`**: Reusable React components organized by domain
+- **`lib/`**: Core application logic, utilities, and services
+- **`config/`**: Configuration files for various services and features
+- **`hooks/`**: Shared React hooks for common functionality
+- **`public/`**: Static assets like images and fonts
+- **`styles/`**: Global styles and theme configurations
+- **`types/`**: Global TypeScript type definitions
+
+### Notable Files
+
+- **`lib/pdf-processing.ts`**: Core PDF processing and analysis logic
+- **`lib/embeddings-store.ts`**: Document embeddings management
+- **`lib/constants.ts`**: Global application constants
+- **`tailwind.config.ts`**: Tailwind CSS styling configuration
+- **`next.config.js`**: Next.js framework configuration
 
 ## 🤝 Contributing
 
+### Development Workflow
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create feature branch: `git checkout -b feature/NewFeature`
+3. Make changes and test
+4. Commit with conventional commits: `git commit -m 'feat: add new feature'`
+5. Push changes: `git push origin feature/NewFeature`
+6. Open Pull Request
+
+### Code Style
+- Follow ESLint configuration
+- Use Prettier for formatting
+- Follow TypeScript strict mode guidelines
+- Write unit tests for new features
+
+## 📈 Performance Optimization
+
+- Lazy loading of PDF pages
+- Caching of processed documents
+- Optimized AI request batching
+- Progressive web app capabilities
+- Service worker implementation
+
+## 🔒 Security
+
+- API key encryption
+- PDF content sanitization
+- Rate limiting implementation
+- CORS policy configuration
+- Data encryption at rest
 
 ## 📝 License
 
@@ -91,6 +222,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [PDF.js](https://mozilla.github.io/pdf.js/) for PDF rendering
-- [OpenAI](https://openai.com/) for AI capabilities
-- [ShadcnUI](https://ui.shadcn.com/) for UI components
+- [PDF.js](https://mozilla.github.io/pdf.js/) - PDF rendering engine
+- [OpenAI](https://openai.com/) - AI capabilities
+- [Tailwind CSS](https://tailwindcss.com/) - Styling framework
+- [Next.js](https://nextjs.org/) - React framework
+- [Zustand](https://github.com/pmndrs/zustand) - State management
+- [Framer Motion](https://www.framer.com/motion/) - Animations
