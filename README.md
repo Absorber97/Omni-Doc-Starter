@@ -2,6 +2,7 @@
 
 OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that combines modern document viewing capabilities with AI-powered features for enhanced document understanding and learning. Perfect for students, faculty,researchers, and professionals who need to deeply understand complex documents.
 
+Google Slides: https://docs.google.com/presentation/d/12kyXrSw_5w-XQU_g2qUVa17GpI9viDCu/edit?usp=sharing&ouid=101665253340217486994&rtpof=true&sd=true
 
 ## 🌟 Key Features
 
