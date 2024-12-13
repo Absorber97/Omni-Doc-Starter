@@ -6,22 +6,24 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { 
-  ArrowLeft,
   Trophy,
   Target,
-  Clock,
-  TrendingUp
+  BookOpen,
+  Brain,
+  CheckCircle2,
+  Star
 } from 'lucide-react';
 import { useLearningPathStore } from '@/lib/store/learning-path-store';
-import { LearningConcept } from '@/lib/types/learning-path';
+import { LearningConcept, ConfidenceLevel } from '@/lib/types/learning-path';
 import { cn } from '@/lib/utils';
 
 interface ProgressDashboardProps {
-  onBack: () => void;
+  onStartLearning: () => void;
 }
 
-export function ProgressDashboard({ onBack }: ProgressDashboardProps) {
+export function ProgressDashboard({ onStartLearning }: ProgressDashboardProps) {
   const { currentPath, getConfidenceLevel } = useLearningPathStore();
 
   const stats = useMemo(() => {
@@ -32,94 +34,159 @@ export function ProgressDashboard({ onBack }: ProgressDashboardProps) {
       c => c.status === 'completed'
     ).length;
 
+    const totalMaterials = currentPath.concepts.reduce(
+      (sum, c) => sum + c.materials.length, 0
+    );
+    const completedMaterials = currentPath.concepts.reduce(
+      (sum, c) => sum + (currentPath.progress[c.id]?.completedMaterials.length || 0), 0
+    );
+
+    const totalQuestions = currentPath.concepts.reduce(
+      (sum, c) => sum + c.practiceQuestions.length, 0
+    );
+    const completedQuestions = currentPath.concepts.reduce(
+      (sum, c) => sum + (currentPath.progress[c.id]?.completedQuestions.length || 0), 0
+    );
+
     const averageConfidence = Object.values(currentPath.progress).reduce(
       (sum, p) => sum + p.confidence, 
       0
     ) / totalConcepts;
 
-    const totalTimeSpent = Object.values(currentPath.progress).reduce(
-      (sum, p) => sum + p.timeSpent,
-      0
-    );
-
     return {
-      progress: (completedConcepts / totalConcepts) * 100,
+      conceptsProgress: (completedConcepts / totalConcepts) * 100,
+      materialsProgress: (completedMaterials / totalMaterials) * 100,
+      questionsProgress: (completedQuestions / totalQuestions) * 100,
       confidence: averageConfidence,
-      timeSpent: totalTimeSpent,
       conceptsCompleted: completedConcepts,
-      totalConcepts
+      totalConcepts,
+      materialsCompleted: completedMaterials,
+      totalMaterials,
+      questionsCompleted: completedQuestions,
+      totalQuestions
     };
   }, [currentPath]);
 
   if (!stats) return null;
 
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner': return 'bg-green-500/10 text-green-500';
+      case 'intermediate': return 'bg-blue-500/10 text-blue-500';
+      case 'advanced': return 'bg-purple-500/10 text-purple-500';
+      case 'expert': return 'bg-orange-500/10 text-orange-500';
+      default: return 'bg-gray-500/10 text-gray-500';
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Concepts
-        </Button>
-      </div>
+      {/* Overall Progress */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-medium">Learning Progress</h3>
+            <p className="text-sm text-muted-foreground">
+              Track your learning journey
+            </p>
+          </div>
+          <Button onClick={onStartLearning}>
+            Continue Learning
+          </Button>
+        </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-blue-500" />
-            <h3 className="font-medium">Overall Progress</h3>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-blue-500" />
+              <span className="text-sm font-medium">Concepts</span>
+            </div>
+            <Progress value={stats.conceptsProgress} className="h-2" />
+            <p className="text-sm text-muted-foreground">
+              {stats.conceptsCompleted} of {stats.totalConcepts} completed
+            </p>
           </div>
-          <Progress value={stats.progress} className="h-2" />
-          <p className="text-sm text-muted-foreground">
-            {stats.conceptsCompleted} of {stats.totalConcepts} concepts completed
-          </p>
-        </Card>
 
-        <Card className="p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-yellow-500" />
-            <h3 className="font-medium">Average Confidence</h3>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-green-500" />
+              <span className="text-sm font-medium">Materials</span>
+            </div>
+            <Progress value={stats.materialsProgress} className="h-2" />
+            <p className="text-sm text-muted-foreground">
+              {stats.materialsCompleted} of {stats.totalMaterials} completed
+            </p>
           </div>
-          <div className="text-2xl font-bold">
-            {Math.round(stats.confidence)}%
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {getConfidenceLevel(stats.confidence)}
-          </p>
-        </Card>
 
-        <Card className="p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-green-500" />
-            <h3 className="font-medium">Time Spent</h3>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-purple-500" />
+              <span className="text-sm font-medium">Practice</span>
+            </div>
+            <Progress value={stats.questionsProgress} className="h-2" />
+            <p className="text-sm text-muted-foreground">
+              {stats.questionsCompleted} of {stats.totalQuestions} completed
+            </p>
           </div>
-          <div className="text-2xl font-bold">
-            {Math.round(stats.timeSpent / 60)}h {stats.timeSpent % 60}m
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Total learning time
-          </p>
-        </Card>
+        </div>
+      </Card>
 
-        <Card className="p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-purple-500" />
-            <h3 className="font-medium">Achievements</h3>
-          </div>
-          <div className="text-2xl font-bold">
-            {currentPath?.assessments.length || 0}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Assessments completed
-          </p>
-        </Card>
-      </div>
+      {/* Concepts Overview */}
+      <Card className="p-6">
+        <h3 className="text-lg font-medium mb-4">Learning Concepts</h3>
+        <div className="space-y-4">
+          {currentPath?.concepts.map((concept) => (
+            <div 
+              key={concept.id}
+              className="flex items-center gap-4 p-4 rounded-lg border"
+            >
+              <div 
+                className="h-10 w-10 rounded-lg flex items-center justify-center text-lg"
+                style={{ backgroundColor: `${concept.color}20`, color: concept.color }}
+              >
+                {concept.emoji}
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-medium truncate">{concept.title}</h4>
+                  <Badge 
+                    variant="secondary" 
+                    className={cn(
+                      'ml-auto',
+                      getDifficultyColor(concept.metadata?.difficulty || 'beginner')
+                    )}
+                  >
+                    {concept.metadata?.difficulty}
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <BookOpen className="h-4 w-4" />
+                    <span>
+                      {currentPath.progress[concept.id]?.completedMaterials.length || 0}/
+                      {concept.materials.length}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Brain className="h-4 w-4" />
+                    <span>
+                      {currentPath.progress[concept.id]?.completedQuestions.length || 0}/
+                      {concept.practiceQuestions.length}
+                    </span>
+                  </div>
+
+                  {concept.status === 'completed' && (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 } 

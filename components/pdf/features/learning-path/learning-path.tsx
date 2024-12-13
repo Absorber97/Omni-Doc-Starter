@@ -21,7 +21,7 @@ interface LearningPathProps {
 
 export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
   const { currentPath, isLoading, error, initializePath } = useLearningPathStore();
-  const [view, setView] = useState<'assessment' | 'concepts' | 'progress'>('assessment');
+  const [view, setView] = useState<'assessment' | 'concepts' | 'progress'>('progress');
 
   useEffect(() => {
     console.log('🔄 Learning path component mounted');
@@ -36,15 +36,16 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
     if (!currentPath) {
       console.log('📚 Starting initialization');
       initialize();
+      setView('assessment');
     } else {
       console.log('📚 Using existing learning path');
-      setView('concepts');
+      setView('progress');
     }
   }, [url, currentPath, initializePath]);
 
   const handleAssessmentComplete = (assessment: Assessment) => {
-    console.log('✅ Assessment completed, switching to concepts view');
-    setView('concepts');
+    console.log('✅ Assessment completed, switching to progress view');
+    setView('progress');
   };
 
   if (error) {
@@ -67,7 +68,7 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
 
   return (
     <div className="flex flex-col h-full">
-
+      
 
       {/* Loading State */}
       {isLoading && (
@@ -81,7 +82,7 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
 
       {/* Content */}
       {!isLoading && (
-        <div>
+        <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
             <div className="p-4">
               <AnimatePresence mode="wait" initial={false}>
@@ -99,8 +100,7 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
                   </motion.div>
                 )}
 
-                {((view === 'concepts' && currentPath) || 
-                  (currentPath?.assessments?.length > 0)) && (
+                {view === 'concepts' && currentPath && (
                   <motion.div
                     key="concepts"
                     initial={{ opacity: 0, y: 20 }}
@@ -126,7 +126,7 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
                   >
                     <ErrorBoundary>
                       <ProgressDashboard 
-                        onBack={() => setView('concepts')} 
+                        onStartLearning={() => setView('concepts')} 
                       />
                     </ErrorBoundary>
                   </motion.div>

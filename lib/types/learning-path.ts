@@ -1,33 +1,59 @@
-export type ConfidenceLevel = 'beginner' | 'learning' | 'confident' | 'mastered';
+export type ConfidenceLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 export type ConceptStatus = 'locked' | 'available' | 'in-progress' | 'completed';
 export type QuizType = 'initial' | 'concept' | 'review';
+
+export interface LearningMaterial {
+  id: string;
+  title: string;
+  content: string;
+  type: 'text' | 'example' | 'summary';
+  pageReferences: number[];
+  emoji: string;
+  color: string;
+  order: number;
+}
+
+export interface PracticeQuestion {
+  id: string;
+  question: string;
+  type: 'multiple-choice';
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  emoji: string;
+  color: string;
+}
 
 export interface LearningConcept {
   id: string;
   title: string;
   description: string;
-  content: string;
+  materials: LearningMaterial[];
+  practiceQuestions: PracticeQuestion[];
   pageReferences: number[];
   confidence: number; // 0-100
   status: ConceptStatus;
   dependencies: string[];
-  estimatedTime: number; // minutes
+  emoji: string;
+  color: string;
   metadata?: {
-    difficulty: number; // 1-5
+    difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert';
     importance: number; // 1-5
-    vectorId?: string;
   };
 }
 
 export interface QuizQuestion {
   id: string;
-  type: 'multiple-choice' | 'true-false' | 'open-ended';
+  type: 'multiple-choice';
   question: string;
-  options?: string[];
+  options: string[];
   correctAnswer: string;
   explanation: string;
   conceptId: string;
-  difficulty: number; // 1-5
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  emoji: string;
+  color: string;
 }
 
 export interface Assessment {
@@ -47,7 +73,8 @@ export interface Assessment {
 export interface LearningProgress {
   conceptId: string;
   confidence: number;
-  timeSpent: number;
+  completedMaterials: string[]; // material IDs
+  completedQuestions: string[]; // question IDs
   lastAccessed: Date;
   assessments: Assessment[];
 }

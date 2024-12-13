@@ -113,13 +113,39 @@ export const useLearningPathStore = create<LearningPathState>()(
             // Generate assessment using extracted content
             console.log('📝 Generating initial assessment');
             const assessment = await service.generateInitialAssessment(pdfUrl, content);
+            console.log('✅ Assessment generated with score:', assessment.score);
             
             // Create learning path using the same content
             console.log('🛠️ Creating learning path');
-            const path = await service.createLearningPath(assessment, content);
+            let retryCount = 0;
+            const maxRetries = 3;
+            let lastError = null;
             
-            console.log('✅ Learning path created successfully');
-            set({ currentPath: path, isLoading: false, error: null });
+            while (retryCount < maxRetries) {
+              try {
+                console.log(`📝 Attempt ${retryCount + 1}/${maxRetries} to create learning path`);
+                const path = await service.createLearningPath(assessment, content);
+                console.log('✅ Learning path created successfully');
+                set({ currentPath: path, isLoading: false, error: null });
+                return;
+              } catch (error) {
+                lastError = error;
+                console.error(`❌ Attempt ${retryCount + 1}/${maxRetries} failed:`, error);
+                retryCount++;
+                
+                if (retryCount === maxRetries) {
+                  console.error('❌ All retry attempts failed');
+                  throw new Error(`Failed after ${maxRetries} attempts: ${error.message}`);
+                }
+                
+                const delay = Math.min(1000 * Math.pow(2, retryCount), 8000); // Exponential backoff
+                console.log(`⏳ Waiting ${delay}ms before retry...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                console.log(`🔄 Retrying... (attempt ${retryCount + 1}/${maxRetries})`);
+              }
+            }
+
+            throw lastError; // Should never reach here, but just in case
           } catch (error) {
             console.error('❌ Learning path initialization error:', error);
             set({ 
@@ -131,8 +157,15 @@ export const useLearningPathStore = create<LearningPathState>()(
 
         // Store the promise and clean it up when done
         set({ initializationPromise: initPromise });
-        await initPromise;
-        set({ initializationPromise: null });
+        try {
+          await initPromise;
+          console.log('✅ Initialization complete');
+        } catch (error) {
+          console.error('❌ Initialization failed:', error);
+        } finally {
+          console.log('🔄 Cleaning up initialization state');
+          set({ initializationPromise: null });
+        }
       },
 
       updateProgress: (conceptId: string, confidence: number) => {
