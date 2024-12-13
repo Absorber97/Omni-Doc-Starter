@@ -15,6 +15,7 @@ interface LearningPathState {
   error: string | null;
   service: LearningPathService;
   achievements: Achievement[];
+  initializationPromise: Promise<void> | null;
   
   // Actions
   initializePath: (pdfUrl: string) => Promise<void>;
@@ -44,7 +45,8 @@ const serializeState = (state: any): any => {
         ])
       )
     } : null,
-    service: undefined // Don't persist service instance
+    service: undefined, // Don't persist service instance
+    initializationPromise: null // Don't persist promise
   };
 };
 
@@ -66,7 +68,8 @@ const deserializeState = (state: any): any => {
         ])
       )
     } : null,
-    service: new LearningPathService() // Recreate service instance
+    service: new LearningPathService(), // Recreate service instance
+    initializationPromise: null // Reset promise
   };
 };
 
@@ -78,21 +81,58 @@ export const useLearningPathStore = create<LearningPathState>()(
       error: null,
       service: new LearningPathService(),
       achievements: [],
+      initializationPromise: null,
 
       initializePath: async (pdfUrl: string) => {
-        set({ isLoading: true, error: null });
-        try {
-          const service = get().service;
-          const assessment = await service.generateInitialAssessment(pdfUrl);
-          const content = await service.contentExtractor.extractContent(pdfUrl);
-          const path = await service.createLearningPath(assessment, content);
-          set({ currentPath: path });
-        } catch (error) {
-          set({ error: 'Failed to initialize learning path' });
-          console.error('Learning path initialization error:', error);
-        } finally {
-          set({ isLoading: false });
+        const state = get();
+        
+        // If already initialized with this URL, return
+        if (state.currentPath) {
+          console.log('📚 Learning path already initialized');
+          return;
         }
+
+        // If initialization is in progress, wait for it
+        if (state.initializationPromise) {
+          console.log('⏳ Waiting for existing initialization to complete');
+          return state.initializationPromise;
+        }
+
+        console.log('🚀 Starting learning path initialization');
+        set({ isLoading: true, error: null });
+
+        const initPromise = (async () => {
+          try {
+            const service = get().service;
+
+            // Extract content first since we need it for both steps
+            console.log('📄 Extracting content from PDF');
+            const content = await service.contentExtractor.extractContent(pdfUrl);
+            console.log('✅ Content extraction complete, length:', content.length);
+
+            // Generate assessment using extracted content
+            console.log('📝 Generating initial assessment');
+            const assessment = await service.generateInitialAssessment(pdfUrl, content);
+            
+            // Create learning path using the same content
+            console.log('🛠️ Creating learning path');
+            const path = await service.createLearningPath(assessment, content);
+            
+            console.log('✅ Learning path created successfully');
+            set({ currentPath: path, isLoading: false, error: null });
+          } catch (error) {
+            console.error('❌ Learning path initialization error:', error);
+            set({ 
+              error: error instanceof Error ? error.message : 'Failed to initialize learning path',
+              isLoading: false 
+            });
+          }
+        })();
+
+        // Store the promise and clean it up when done
+        set({ initializationPromise: initPromise });
+        await initPromise;
+        set({ initializationPromise: null });
       },
 
       updateProgress: (conceptId: string, confidence: number) => {
@@ -154,7 +194,12 @@ export const useLearningPathStore = create<LearningPathState>()(
       },
 
       reset: () => {
-        set({ currentPath: null, isLoading: false, error: null });
+        set({ 
+          currentPath: null, 
+          isLoading: false, 
+          error: null,
+          initializationPromise: null
+        });
       }
     }),
     {
