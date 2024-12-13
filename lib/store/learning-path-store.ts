@@ -25,6 +25,7 @@ interface LearningPathState {
   getConfidenceLevel: (confidence: number) => ConfidenceLevel;
   awardAchievement: (title: string, description: string, icon: string) => void;
   reset: () => void;
+  completeMaterial: (conceptId: string, materialId: string) => void;
 }
 
 // Helper to safely serialize dates
@@ -172,19 +173,44 @@ export const useLearningPathStore = create<LearningPathState>()(
         set(state => {
           if (!state.currentPath) return state;
 
-          const progress = {
+          // Get the concept
+          const concept = state.currentPath.concepts.find(c => c.id === conceptId);
+          if (!concept) return state;
+
+          // Get or initialize progress for this concept
+          const conceptProgress = state.currentPath.progress[conceptId] || {
+            confidence: 0,
+            lastAccessed: new Date(),
+            completedMaterials: [],
+            completedQuestions: []
+          };
+
+          // Update progress
+          const updatedProgress = {
             ...state.currentPath.progress,
             [conceptId]: {
-              ...state.currentPath.progress[conceptId],
+              ...conceptProgress,
               confidence,
               lastAccessed: new Date()
             }
           };
 
+          // Update concept status if confidence is high enough
+          const updatedConcepts = state.currentPath.concepts.map(c => {
+            if (c.id === conceptId) {
+              return {
+                ...c,
+                status: confidence >= 70 ? 'completed' : c.status
+              };
+            }
+            return c;
+          });
+
           return {
             currentPath: {
               ...state.currentPath,
-              progress,
+              concepts: updatedConcepts,
+              progress: updatedProgress,
               updatedAt: new Date()
             }
           };
@@ -232,6 +258,59 @@ export const useLearningPathStore = create<LearningPathState>()(
           isLoading: false, 
           error: null,
           initializationPromise: null
+        });
+      },
+
+      completeMaterial: (conceptId: string, materialId: string) => {
+        set(state => {
+          if (!state.currentPath) return state;
+
+          // Get or initialize progress for this concept
+          const conceptProgress = state.currentPath.progress[conceptId] || {
+            confidence: 0,
+            lastAccessed: new Date(),
+            completedMaterials: [],
+            completedQuestions: []
+          };
+
+          // Add material to completed list if not already there
+          if (!conceptProgress.completedMaterials.includes(materialId)) {
+            conceptProgress.completedMaterials.push(materialId);
+          }
+
+          // Update progress
+          const updatedProgress = {
+            ...state.currentPath.progress,
+            [conceptId]: {
+              ...conceptProgress,
+              lastAccessed: new Date()
+            }
+          };
+
+          // Check if all materials are completed
+          const concept = state.currentPath.concepts.find(c => c.id === conceptId);
+          const allMaterialsCompleted = concept && 
+            conceptProgress.completedMaterials.length === concept.materials.length;
+
+          // Update concept status if all materials are completed
+          const updatedConcepts = state.currentPath.concepts.map(c => {
+            if (c.id === conceptId && allMaterialsCompleted) {
+              return {
+                ...c,
+                status: 'completed'
+              };
+            }
+            return c;
+          });
+
+          return {
+            currentPath: {
+              ...state.currentPath,
+              concepts: updatedConcepts,
+              progress: updatedProgress,
+              updatedAt: new Date()
+            }
+          };
         });
       }
     }),

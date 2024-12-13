@@ -108,154 +108,184 @@ export class LearningPathService {
     console.log('📝 Content length:', content.length);
     
     try {
-      // Prepare content by taking relevant sections
-      const contentSummary = content
-        .split('\n')
-        .slice(0, 50) // Take first 50 lines for context
-        .join('\n');
+      const CHUNK_SIZE = 1500;
+      const chunks = content.match(new RegExp(`.{1,${CHUNK_SIZE}}`, 'g')) || [];
+      console.log(`📄 Split content into ${chunks.length} chunks`);
 
-      const prompt = `
-        Create a structured learning path based on:
-        1. Assessment results: ${JSON.stringify(assessment)}
-        2. Document content summary: ${contentSummary}
-        3. Full content length: ${content.length} characters
+      // Prepare batch messages for OpenAI with assigned difficulties
+      const difficulties = ['beginner', 'intermediate', 'advanced'];
+      const messages = chunks.map((chunk, index) => {
+        const startPage = Math.floor(index * (content.length / chunks.length) / 500) + 1;
+        // Cycle through difficulties to ensure even distribution
+        const assignedDifficulty = difficulties[index % difficulties.length];
         
-        Create a comprehensive learning path with:
-        1. 5-7 key concepts spread across different difficulty levels
-        2. Each concept should have:
-           - 3-4 learning materials (mix of text, examples, and summaries)
-           - 3-5 practice questions
-           - Relevant page references from throughout the document
-           - A unique emoji and color theme
-        3. Difficulty levels should be diverse (beginner, intermediate, advanced, expert)
-        4. Use page references from throughout the document (not just the beginning)
-        
-        Return a JSON object with this structure:
-        {
-          "concepts": [
-            {
-              "title": "string",
-              "description": "string",
-              "materials": [
-                {
-                  "title": "string",
-                  "content": "string",
-                  "type": "text" | "example" | "summary",
-                  "pageReferences": [number],
-                  "emoji": "string",
-                  "color": "string (hex)",
-                  "order": number
-                }
-              ],
-              "practiceQuestions": [
-                {
-                  "question": "string",
-                  "options": ["string"],
-                  "correctAnswer": "string",
-                  "explanation": "string",
-                  "difficulty": "beginner" | "intermediate" | "advanced",
-                  "emoji": "string",
-                  "color": "string (hex)"
-                }
-              ],
-              "pageReferences": [number],
-              "emoji": "string",
-              "color": "string (hex)",
-              "dependencies": ["string"],
-              "metadata": {
-                "difficulty": "beginner" | "intermediate" | "advanced" | "expert",
-                "importance": number (1-5)
-              }
-            }
-          ]
-        }
-      `;
-
-      console.log('🤖 Requesting learning path from OpenAI');
-      console.log('⏳ Starting OpenAI request...');
-      
-      const response = await this.openai.chat.completions.create({
-        model: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4-turbo-preview',
-        messages: [
+        return [
           { 
             role: 'system', 
-            content: `You are a curriculum design expert. Create engaging learning paths with:
-              - Diverse difficulty levels (ensure mix of beginner, intermediate, advanced, expert)
-              - Multiple learning materials per concept
-              - Practice questions for each concept
-              - Page references spread throughout the document
-              - Unique emojis and colors for visual appeal
-              Use appropriate emojis and hex colors to make each element unique and appealing.`
+            content: `You are a curriculum design expert. Create one focused learning concept with:
+              - Difficulty level: ${assignedDifficulty} (MUST use this exact difficulty)
+              - 1-2 essential learning materials
+              - 1 practice question
+              - Page reference
+              - Unique emoji and color
+              Be concise but thorough.
+              
+              For ${assignedDifficulty} difficulty:
+              - beginner: Basic concepts and definitions
+              - intermediate: Applied concepts and relationships
+              - advanced: Complex analysis and implications`
           },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-        max_tokens: 4000
+          {
+            role: 'user',
+            content: `
+              Create 1 learning concept for this section.
+              Focus on pages ${startPage} to ${startPage + 1}.
+              
+              Requirements:
+              1. MUST use ${assignedDifficulty} difficulty level
+              2. Include:
+                 - 1-2 learning materials
+                 - 1 practice question
+                 - Page reference
+                 - Unique emoji and color
+              
+              Content section:
+              ${chunk}
+              
+              Return a JSON object with this structure:
+              {
+                "concepts": [
+                  {
+                    "title": "string",
+                    "description": "string",
+                    "materials": [
+                      {
+                        "title": "string",
+                        "content": "string",
+                        "type": "text" | "example" | "summary",
+                        "pageReferences": [number],
+                        "emoji": "string",
+                        "color": "string (hex)",
+                        "order": number
+                      }
+                    ],
+                    "practiceQuestions": [
+                      {
+                        "question": "string",
+                        "options": ["string"],
+                        "correctAnswer": "string",
+                        "explanation": "string",
+                        "difficulty": "${assignedDifficulty}",
+                        "emoji": "string",
+                        "color": "string (hex)"
+                      }
+                    ],
+                    "pageReferences": [number],
+                    "emoji": "string",
+                    "color": "string (hex)",
+                    "dependencies": ["string"],
+                    "metadata": {
+                      "difficulty": "${assignedDifficulty}",
+                      "importance": number (1-5)
+                    }
+                  }
+                ]
+              }`
+          }
+        ];
       });
 
-      console.log('✅ OpenAI request completed');
-      const rawResponse = response.choices[0].message.content;
-      
-      if (!rawResponse) {
-        console.error('❌ Empty response from OpenAI');
-        throw new Error('Empty response from OpenAI');
-      }
-      
-      console.log('✨ Received learning path response, length:', rawResponse.length);
-      console.log('🔍 Parsing response...');
+      // Process in larger batches
+      const BATCH_SIZE = 8;
+      const allConcepts: LearningConcept[] = [];
 
-      try {
-        const concepts = this.parseConcepts(rawResponse);
-        
-        // Validate concept diversity
-        const difficulties = concepts.map(c => c.metadata?.difficulty);
-        const uniqueDifficulties = new Set(difficulties);
-        console.log('📚 Concept difficulties:', difficulties);
-        console.log('🎯 Unique difficulty levels:', uniqueDifficulties.size);
+      for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+        const batch = messages.slice(i, i + BATCH_SIZE);
+        console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(messages.length / BATCH_SIZE)}`);
 
-        if (uniqueDifficulties.size < 3) {
-          console.warn('⚠️ Low difficulty diversity, regenerating...');
-          throw new Error('Insufficient difficulty diversity');
+        const responses = await Promise.all(
+          batch.map(messageSet => 
+            this.openai.chat.completions.create({
+              model: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4-turbo-preview',
+              messages: messageSet,
+              temperature: 0.7,
+              response_format: { type: "json_object" }
+            })
+          )
+        );
+
+        for (const response of responses) {
+          const rawResponse = response.choices[0].message.content;
+          if (!rawResponse) continue;
+
+          try {
+            const concepts = this.parseConcepts(rawResponse);
+            // Verify the concept has the correct assigned difficulty
+            const validConcepts = concepts.filter(concept => 
+              difficulties.includes(concept.metadata?.difficulty || '')
+            );
+            allConcepts.push(...validConcepts);
+          } catch (error) {
+            console.error('Failed to parse concepts from response:', error);
+          }
         }
 
-        // Validate page references
-        const allPageRefs = concepts.flatMap(c => c.pageReferences);
-        const uniquePages = new Set(allPageRefs);
-        console.log('📄 Page references:', allPageRefs);
-        console.log('📚 Unique pages referenced:', uniquePages.size);
-
-        if (uniquePages.size < 5) {
-          console.warn('⚠️ Limited page coverage, regenerating...');
-          throw new Error('Insufficient page coverage');
+        if (i + BATCH_SIZE < messages.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        const learningPath: LearningPath = {
-          id: uuidv4(),
-          documentId: uuidv4(),
-          concepts,
-          progress: {},
-          currentConceptId: concepts[0]?.id || null,
-          assessments: [assessment],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        console.log('✅ Learning path created successfully');
-        console.log('📊 Path stats:', {
-          conceptCount: concepts.length,
-          totalMaterials: concepts.reduce((sum, c) => sum + c.materials.length, 0),
-          totalQuestions: concepts.reduce((sum, c) => sum + c.practiceQuestions.length, 0),
-          uniqueDifficulties: Array.from(uniqueDifficulties),
-          uniquePages: Array.from(uniquePages)
-        });
-
-        return learningPath;
-      } catch (parseError) {
-        console.error('❌ Error parsing OpenAI response:', parseError);
-        console.error('Raw response:', rawResponse);
-        throw new Error('Failed to parse OpenAI response: ' + parseError.message);
+        // Early success check - if we have enough diverse concepts, we can stop
+        const currentDifficulties = new Set(allConcepts.map(c => c.metadata?.difficulty));
+        if (currentDifficulties.size >= 3 && allConcepts.length >= 9) {
+          console.log('✅ Found sufficient diverse concepts early, stopping generation');
+          break;
+        }
       }
+
+      console.log(`✅ Generated ${allConcepts.length} total concepts`);
+      
+      // Group concepts by difficulty for balanced selection
+      const conceptsByDifficulty = allConcepts.reduce((acc, concept) => {
+        const difficulty = concept.metadata?.difficulty || 'beginner';
+        if (!acc[difficulty]) acc[difficulty] = [];
+        acc[difficulty].push(concept);
+        return acc;
+      }, {} as Record<string, LearningConcept[]>);
+
+      // Select one concept from each difficulty level
+      const selectedConcepts = difficulties
+        .map(difficulty => {
+          const concepts = conceptsByDifficulty[difficulty] || [];
+          return concepts.sort((a, b) => 
+            (b.metadata?.importance || 0) - (a.metadata?.importance || 0)
+          )[0];
+        })
+        .filter(Boolean);
+
+      if (selectedConcepts.length < 3) {
+        throw new Error('Could not find enough concepts with diverse difficulties');
+      }
+
+      const learningPath: LearningPath = {
+        id: uuidv4(),
+        documentId: uuidv4(),
+        concepts: selectedConcepts.slice(0, 3),
+        progress: {},
+        currentConceptId: selectedConcepts[0]?.id || null,
+        assessments: [assessment],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      console.log('✅ Learning path created successfully');
+      console.log('📊 Path stats:', {
+        conceptCount: selectedConcepts.length,
+        totalMaterials: selectedConcepts.reduce((sum, c) => sum + c.materials.length, 0),
+        totalQuestions: selectedConcepts.reduce((sum, c) => sum + c.practiceQuestions.length, 0),
+        difficulties: selectedConcepts.map(c => c.metadata?.difficulty)
+      });
+
+      return learningPath;
     } catch (error) {
       console.error('❌ Error creating learning path:', error);
       if (error.response) {
@@ -264,7 +294,7 @@ export class LearningPathService {
           data: error.response.data
         });
       }
-      throw error; // Propagate error for retry mechanism
+      throw error;
     }
   }
 
@@ -358,5 +388,50 @@ export class LearningPathService {
       console.error('Raw content:', content);
       throw new Error(`Failed to parse concepts: ${error.message}`);
     }
+  }
+
+  private selectDiverseConcepts(concepts: LearningConcept[]): LearningConcept[] {
+    // Sort by importance first
+    const sortedConcepts = [...concepts].sort((a, b) => 
+      (b.metadata?.importance || 0) - (a.metadata?.importance || 0)
+    );
+
+    const selected: LearningConcept[] = [];
+    const usedDifficulties = new Set<string>();
+    const usedPages = new Set<number>();
+    const usedEmojis = new Set<string>();
+
+    // Select exactly 3 concepts with diverse difficulties
+    for (const concept of sortedConcepts) {
+      if (selected.length >= 3) break;
+
+      const difficulty = concept.metadata?.difficulty || 'beginner';
+      const pages = concept.pageReferences;
+      
+      // Check if this concept adds diversity
+      const addsDifficultyDiversity = !usedDifficulties.has(difficulty);
+      const addsPageDiversity = pages.some(p => !usedPages.has(p));
+      const hasUniqueEmoji = !usedEmojis.has(concept.emoji);
+
+      if ((addsDifficultyDiversity || addsPageDiversity) && hasUniqueEmoji) {
+        selected.push(concept);
+        usedDifficulties.add(difficulty);
+        pages.forEach(p => usedPages.add(p));
+        usedEmojis.add(concept.emoji);
+      }
+    }
+
+    // If we still need more concepts, add highest importance ones
+    while (selected.length < 3) {
+      const nextConcept = sortedConcepts.find(c => 
+        !selected.includes(c) && !usedEmojis.has(c.emoji)
+      );
+      if (!nextConcept) break;
+      
+      selected.push(nextConcept);
+      usedEmojis.add(nextConcept.emoji);
+    }
+
+    return selected;
   }
 } 

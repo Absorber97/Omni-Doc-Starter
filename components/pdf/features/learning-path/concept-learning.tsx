@@ -30,7 +30,7 @@ interface ConceptLearningProps {
 export function ConceptLearning({ concept, onBack, onComplete }: ConceptLearningProps) {
   const [readingProgress, setReadingProgress] = useState(0);
   const { timeSpent, formattedTime } = useLearningTracker({ concept });
-  const { currentPath } = useLearningPathStore();
+  const { currentPath, completeMaterial } = useLearningPathStore();
   const { navigateToPage } = usePDFNavigation();
 
   // Track scroll progress
@@ -38,6 +38,14 @@ export function ConceptLearning({ concept, onBack, onComplete }: ConceptLearning
     const target = e.target as HTMLDivElement;
     const progress = (target.scrollTop / (target.scrollHeight - target.clientHeight)) * 100;
     setReadingProgress(Math.min(progress, 100));
+  };
+
+  const handleComplete = () => {
+    // Mark all materials as completed
+    concept.materials.forEach(material => {
+      completeMaterial(concept.id, material.id);
+    });
+    onComplete();
   };
 
   return (
@@ -66,45 +74,39 @@ export function ConceptLearning({ concept, onBack, onComplete }: ConceptLearning
       </div>
 
       {/* Content */}
-      <Card className="flex-1 overflow-hidden">
-        <ScrollArea 
-          className="h-full"
-          onScroll={handleScroll}
-        >
-          <div className="p-6 space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold">{concept.title}</h2>
-              <p className="text-muted-foreground">{concept.description}</p>
-            </div>
-
-            <div className="prose prose-sm dark:prose-invert">
-              {concept.content.split('\n').map((paragraph, index) => (
-                <p key={index}>{paragraph}</p>
-              ))}
-            </div>
-
-            {concept.pageReferences.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Referenced Pages</h4>
-                <div className="flex flex-wrap gap-2">
-                  {concept.pageReferences.map((page) => (
-                    <Button
-                      key={page}
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => navigateToPage(page)}
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Page {page}
-                    </Button>
-                  ))}
+      <ScrollArea className="flex-1" onScroll={handleScroll}>
+        <div className="space-y-8 p-4">
+          {concept.materials.map((material, index) => (
+            <div key={material.id} className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div 
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-lg"
+                  style={{ backgroundColor: `${material.color}20`, color: material.color }}
+                >
+                  {material.emoji}
                 </div>
+                <h3 className="text-lg font-medium">{material.title}</h3>
               </div>
-            )}
-          </div>
-        </ScrollArea>
-      </Card>
+
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                {material.content}
+              </div>
+
+              {material.pageReferences?.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateToPage(material.pageReferences[0])}
+                  className="gap-2"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  View in Document
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
 
       {/* Actions */}
       <div className="flex justify-between items-center mt-4">
@@ -115,7 +117,7 @@ export function ConceptLearning({ concept, onBack, onComplete }: ConceptLearning
           }
         </div>
         <Button
-          onClick={onComplete}
+          onClick={handleComplete}
           disabled={readingProgress < 90}
           className="gap-2"
         >
