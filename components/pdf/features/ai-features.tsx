@@ -10,7 +10,8 @@ import {
   LayoutGrid, 
   MessageSquare,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  GraduationCap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
@@ -18,6 +19,7 @@ import { KeyConcepts } from './key-concepts';
 import { Summary } from './summary';
 import { Flashcards } from './flashcards';
 import { Chat } from './chat';
+import { LearningPath } from './learning-path/learning-path';
 import { cn } from '@/lib/utils';
 import { ErrorBoundary } from './error-boundary';
 
@@ -28,7 +30,7 @@ interface AIFeaturesProps {
 }
 
 type Feature = {
-  id: 'concepts' | 'summary' | 'flashcards' | 'chat';
+  id: 'concepts' | 'summary' | 'flashcards' | 'chat' | 'learning-path';
   icon: React.ElementType;
   label: string;
   description: string;
@@ -71,6 +73,13 @@ export function AIFeatures({ url, currentPage, onPathChange }: AIFeaturesProps) 
       label: 'Chat',
       description: 'Ask questions about the document',
       component: Chat,
+    },
+    {
+      id: 'learning-path',
+      icon: GraduationCap,
+      label: 'Learning Path',
+      description: 'Personalized learning journey',
+      component: LearningPath,
     },
   ];
 
