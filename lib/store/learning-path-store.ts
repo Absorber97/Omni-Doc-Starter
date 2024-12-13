@@ -1,92 +1,43 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { LearningPathService } from '@/lib/services/learning-path-service';
-import { LearningConcept, LearningPath, Assessment } from '@/lib/types/learning-path';
-import { appConfig } from '@/config/app';
+import { OpenAI } from 'openai';
+import { openAIConfig, openAIClientConfig } from '@/config/openai';
+import { PDFContentExtractor } from '@/lib/services/pdf-content-extractor';
+import { getDifficultyColor } from '@/lib/utils/difficulty-utils';
 
-interface LearningPathState {
-  paths: Record<string, LearningPath>;
-  currentPath: LearningPath | null;
-  service: LearningPathService;
-  isLoading: boolean;
-  error: string | null;
-
-  // Actions
-  initialize: (documentId: string) => Promise<void>;
-  reset: () => void;
-  getCurrentConcept: () => LearningConcept | null;
-  getConfidenceLevel: (confidence: number) => string;
-  updateProgress: (conceptId: string, confidence?: number) => void;
-  completeMaterial: (conceptId: string, materialId: string) => void;
-  completeQuestion: (conceptId: string, questionId: string) => void;
+export interface Material {
+  id: string;
+  title: string;
+  content: string;
+  pageNumber: number;
+  completed: boolean;
 }
 
-// Helper to safely serialize dates
-const serializeState = (state: any): any => {
-  if (!state) return state;
+export interface Concept {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  emoji: string;
+  materials: Material[];
+  completed: boolean;
+}
 
-  const serializePath = (path: any) => {
-    if (!path) return null;
-    return {
-      ...path,
-      createdAt: path.createdAt?.toISOString(),
-      updatedAt: path.updatedAt?.toISOString(),
-      assessments: path.assessments?.map((a: any) => ({
-        ...a,
-        completedAt: a.completedAt ? a.completedAt.toISOString() : undefined
-      })) || []
-    };
-  };
-
-  return {
-    ...state,
-    paths: state.paths ? Object.fromEntries(
-      Object.entries(state.paths || {}).map(([key, path]: [string, any]) => [
-        key,
-        serializePath(path)
-      ])
-    ) : {},
-    currentPath: serializePath(state.currentPath),
-    service: undefined // Don't persist service instance
-  };
-};
-
-// Helper to safely deserialize dates
-const deserializeState = (state: any): any => {
-  if (!state) return state;
-
-  const deserializePath = (path: any) => {
-    if (!path) return null;
-    return {
-      ...path,
-      createdAt: path.createdAt ? new Date(path.createdAt) : new Date(),
-      updatedAt: path.updatedAt ? new Date(path.updatedAt) : new Date(),
-      assessments: path.assessments?.map((a: any) => ({
-        ...a,
-        completedAt: a.completedAt ? new Date(a.completedAt) : undefined
-      })) || []
-    };
-  };
-
-  return {
-    ...state,
-    paths: state.paths ? Object.fromEntries(
-      Object.entries(state.paths || {}).map(([key, path]: [string, any]) => [
-        key,
-        deserializePath(path)
-      ])
-    ) : {},
-    currentPath: deserializePath(state.currentPath),
-    service: new LearningPathService()
-  };
-};
+interface LearningPathState {
+  concepts: Concept[];
+  isLoading: boolean;
+  error: string | null;
+  setConcepts: (concepts: Concept[]) => void;
+  generateLearningPath: (url: string) => Promise<void>;
+  markConceptCompleted: (conceptId: string) => void;
+  markMaterialCompleted: (conceptId: string, materialId: string) => void;
+  reset: () => void;
+}
 
 const initialState = {
-  paths: {},
-  currentPath: null,
-  service: new LearningPathService(),
+  concepts: [],
   isLoading: false,
-  error: null
+  error: null,
 };
 
 export const useLearningPathStore = create<LearningPathState>()(
@@ -94,178 +45,136 @@ export const useLearningPathStore = create<LearningPathState>()(
     (set, get) => ({
       ...initialState,
 
-      initialize: async (documentId: string) => {
-        console.log('🔄 Initializing learning path for document:', documentId);
+      setConcepts: (concepts) => {
+        console.log('📝 Setting concepts:', concepts.length);
+        set({ concepts, isLoading: false, error: null });
+      },
+
+      generateLearningPath: async (url) => {
+        const state = get();
+        if (state.concepts.length > 0) {
+          console.log('📚 Reusing existing learning path');
+          return;
+        }
+
         set({ isLoading: true, error: null });
 
         try {
-          // Check if we already have this path
-          const existingPath = get().paths[documentId];
-          if (existingPath) {
-            console.log('📚 Using existing learning path from storage');
-            set({ currentPath: existingPath, isLoading: false });
-            return;
+          // Extract content from all pages
+          const extractor = new PDFContentExtractor();
+          await extractor.loadDocument(url);
+          
+          const pageCount = await extractor.getPageCount();
+          console.log(`📄 Processing ${pageCount} pages for learning path`);
+
+          let allContent = '';
+          for (let page = 1; page <= pageCount; page++) {
+            const pageContent = await extractor.getPageContent(page);
+            allContent += pageContent + '\n\n';
           }
 
-          // Create new path if not found
-          console.log('🛠️ Creating new learning path');
-          const newPath = await get().service.createLearningPath(documentId);
-          
-          // Update storage
-          set(state => ({
-            paths: {
-              ...(state.paths || {}),
-              [documentId]: newPath
-            },
-            currentPath: newPath,
-            isLoading: false
+          // Generate learning path using OpenAI
+          const openai = new OpenAI(openAIClientConfig);
+          const response = await openai.chat.completions.create({
+            model: openAIConfig.model,
+            messages: [
+              {
+                role: 'system',
+                content: `Create a learning path with 9 key concepts from the document. Distribute them evenly:
+                - 3 beginner concepts
+                - 3 intermediate concepts
+                - 3 advanced concepts
+                
+                For each concept:
+                1. Create a clear title and description
+                2. Choose a relevant emoji
+                3. Create 3 learning materials with specific page numbers
+                4. Ensure materials build upon each other
+                
+                Format as JSON: {
+                  "concepts": [{
+                    "title": string,
+                    "description": string,
+                    "difficulty": "beginner" | "intermediate" | "advanced",
+                    "emoji": string,
+                    "materials": [{
+                      "title": string,
+                      "content": string,
+                      "pageNumber": number
+                    }]
+                  }]
+                }`
+              },
+              {
+                role: 'user',
+                content: allContent
+              }
+            ],
+            temperature: 0.7,
+            response_format: { type: "json_object" }
+          });
+
+          const generatedPath = JSON.parse(response.choices[0].message.content || '{"concepts": []}');
+          const concepts: Concept[] = generatedPath.concepts.map((concept: any, conceptIndex: number) => ({
+            id: `concept-${conceptIndex}`,
+            title: concept.title,
+            description: concept.description,
+            difficulty: concept.difficulty,
+            emoji: concept.emoji,
+            completed: false,
+            materials: concept.materials.map((material: any, materialIndex: number) => ({
+              id: `material-${conceptIndex}-${materialIndex}`,
+              title: material.title,
+              content: material.content,
+              pageNumber: material.pageNumber || Math.floor(Math.random() * pageCount) + 1,
+              completed: false
+            }))
           }));
 
-          console.log('✅ Learning path initialized successfully');
+          set({ concepts, isLoading: false, error: null });
+          await extractor.cleanup();
         } catch (error) {
-          console.error('❌ Error initializing learning path:', error);
-          set({ 
-            error: error instanceof Error ? error.message : 'Failed to initialize learning path',
-            isLoading: false 
-          });
-          throw error;
+          console.error('Error generating learning path:', error);
+          set({ error: 'Failed to generate learning path', isLoading: false });
         }
       },
 
-      reset: () => {
-        console.log('🔄 Resetting learning path store');
-        set(initialState);
+      markConceptCompleted: (conceptId) => {
+        const { concepts } = get();
+        const updatedConcepts = concepts.map(concept =>
+          concept.id === conceptId ? { ...concept, completed: true } : concept
+        );
+        set({ concepts: updatedConcepts });
       },
 
-      getCurrentConcept: () => {
-        const { currentPath } = get();
-        if (!currentPath) return null;
-        return currentPath.concepts.find(c => c.id === currentPath.currentConceptId) || null;
-      },
-
-      getConfidenceLevel: (confidence: number) => {
-        if (confidence >= appConfig.learningPath.confidence.mastered) return 'Mastered';
-        if (confidence >= appConfig.learningPath.confidence.confident) return 'Confident';
-        if (confidence >= appConfig.learningPath.confidence.learning) return 'Learning';
-        return 'Beginner';
-      },
-
-      updateProgress: (conceptId: string, confidence?: number) => {
-        set(state => {
-          if (!state.currentPath) return state;
-
-          console.log('📈 Updating progress for concept:', conceptId, confidence);
-
-          const updatedPath = {
-            ...state.currentPath,
-            progress: {
-              ...(state.currentPath.progress || {}),
-              [conceptId]: {
-                ...(state.currentPath.progress[conceptId] || {}),
-                confidence: confidence ?? state.currentPath.progress[conceptId]?.confidence ?? 0
-              }
-            },
-            updatedAt: new Date()
-          };
+      markMaterialCompleted: (conceptId, materialId) => {
+        const { concepts } = get();
+        const updatedConcepts = concepts.map(concept => {
+          if (concept.id !== conceptId) return concept;
+          
+          const allMaterialsCompleted = concept.materials.every(m => 
+            m.id === materialId ? true : m.completed
+          );
 
           return {
-            currentPath: updatedPath,
-            paths: {
-              ...(state.paths || {}),
-              [updatedPath.documentId]: updatedPath
-            }
+            ...concept,
+            completed: allMaterialsCompleted,
+            materials: concept.materials.map(material =>
+              material.id === materialId ? { ...material, completed: true } : material
+            )
           };
         });
+        set({ concepts: updatedConcepts });
       },
 
-      completeMaterial: (conceptId: string, materialId: string) => {
-        set(state => {
-          if (!state.currentPath) return state;
-
-          console.log('📚 Completing material:', materialId, 'for concept:', conceptId);
-
-          const progress = {
-            ...(state.currentPath.progress[conceptId] || {
-              completedMaterials: [],
-              completedQuestions: [],
-              confidence: 0
-            })
-          };
-
-          if (!progress.completedMaterials?.includes(materialId)) {
-            progress.completedMaterials = [...(progress.completedMaterials || []), materialId];
-            
-            const updatedPath = {
-              ...state.currentPath,
-              progress: {
-                ...(state.currentPath.progress || {}),
-                [conceptId]: progress
-              },
-              updatedAt: new Date()
-            };
-
-            return {
-              currentPath: updatedPath,
-              paths: {
-                ...(state.paths || {}),
-                [updatedPath.documentId]: updatedPath
-              }
-            };
-          }
-
-          return state;
-        });
+      reset: () => {
+        console.log('🗑️ Resetting learning path store');
+        set(initialState);
       },
-
-      completeQuestion: (conceptId: string, questionId: string) => {
-        set(state => {
-          if (!state.currentPath) return state;
-
-          console.log('❓ Completing question:', questionId, 'for concept:', conceptId);
-
-          const progress = {
-            ...(state.currentPath.progress[conceptId] || {
-              completedMaterials: [],
-              completedQuestions: [],
-              confidence: 0
-            })
-          };
-
-          if (!progress.completedQuestions?.includes(questionId)) {
-            progress.completedQuestions = [...(progress.completedQuestions || []), questionId];
-            
-            const updatedPath = {
-              ...state.currentPath,
-              progress: {
-                ...(state.currentPath.progress || {}),
-                [conceptId]: progress
-              },
-              updatedAt: new Date()
-            };
-
-            return {
-              currentPath: updatedPath,
-              paths: {
-                ...(state.paths || {}),
-                [updatedPath.documentId]: updatedPath
-              }
-            };
-          }
-
-          return state;
-        });
-      }
     }),
     {
       name: 'learning-path-storage',
       version: 1,
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      serialize: serializeState,
-      deserialize: deserializeState,
-      partialize: (state) => ({
-        paths: state.paths || {},
-        currentPath: state.currentPath
-      })
     }
   )
 ); 
