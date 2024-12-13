@@ -10,13 +10,15 @@ import {
   LayoutGrid, 
   MessageSquare,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  ListChecks
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { pdfViewerConfig } from '@/config/pdf-viewer';
 import { KeyConcepts } from './key-concepts';
 import { Summary } from './summary';
 import { Flashcards } from './flashcards';
+import { MCQ } from './mcq';
 import { Chat } from './chat';
 import { cn } from '@/lib/utils';
 import { ErrorBoundary } from './error-boundary';
@@ -28,7 +30,7 @@ interface AIFeaturesProps {
 }
 
 type Feature = {
-  id: 'concepts' | 'summary' | 'flashcards' | 'chat';
+  id: 'concepts' | 'summary' | 'flashcards' | 'mcq' | 'chat';
   icon: React.ElementType;
   label: string;
   description: string;
@@ -64,6 +66,13 @@ export function AIFeatures({ url, currentPage, onPathChange }: AIFeaturesProps) 
       label: 'Flashcards',
       description: 'Create study flashcards',
       component: Flashcards,
+    },
+    {
+      id: 'mcq',
+      icon: ListChecks,
+      label: 'Multiple Choice',
+      description: 'Practice with MCQ questions',
+      component: MCQ,
     },
     {
       id: 'chat',
