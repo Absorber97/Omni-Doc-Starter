@@ -1,48 +1,17 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { LearningPathService } from '@/lib/services/learning-path-service';
-import { LearningConcept, LearningPath } from '@/lib/types/learning-path';
+import { LearningConcept, LearningPath, Assessment } from '@/lib/types/learning-path';
 import { appConfig } from '@/config/app';
 
-const STORAGE_KEY = 'omni-doc-learning-paths';
-
-interface StoredData {
+interface LearningPathState {
   paths: Record<string, LearningPath>;
-  lastUpdated: Date;
-}
-
-function loadFromStorage(): StoredData | null {
-  if (typeof window === 'undefined') return null;
-  
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-    
-    const data = JSON.parse(stored);
-    console.log('📚 Loaded learning paths from storage:', Object.keys(data.paths).length);
-    return {
-      paths: data.paths,
-      lastUpdated: new Date(data.lastUpdated)
-    };
-  } catch (error) {
-    console.error('❌ Error loading learning paths from storage:', error);
-    return null;
-  }
-}
-
-function saveToStorage(data: StoredData) {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    console.log('💾 Saved learning paths to storage');
-  } catch (error) {
-    console.error('❌ Error saving learning paths to storage:', error);
-  }
-}
-
-export interface LearningPathStore {
   currentPath: LearningPath | null;
   service: LearningPathService;
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
   initialize: (documentId: string) => Promise<void>;
   reset: () => void;
   getCurrentConcept: () => LearningConcept | null;
@@ -52,206 +21,251 @@ export interface LearningPathStore {
   completeQuestion: (conceptId: string, questionId: string) => void;
 }
 
-export const useLearningPathStore = create<LearningPathStore>((set, get) => ({
+// Helper to safely serialize dates
+const serializeState = (state: any): any => {
+  if (!state) return state;
+
+  const serializePath = (path: any) => {
+    if (!path) return null;
+    return {
+      ...path,
+      createdAt: path.createdAt?.toISOString(),
+      updatedAt: path.updatedAt?.toISOString(),
+      assessments: path.assessments?.map((a: any) => ({
+        ...a,
+        completedAt: a.completedAt ? a.completedAt.toISOString() : undefined
+      })) || []
+    };
+  };
+
+  return {
+    ...state,
+    paths: state.paths ? Object.fromEntries(
+      Object.entries(state.paths || {}).map(([key, path]: [string, any]) => [
+        key,
+        serializePath(path)
+      ])
+    ) : {},
+    currentPath: serializePath(state.currentPath),
+    service: undefined // Don't persist service instance
+  };
+};
+
+// Helper to safely deserialize dates
+const deserializeState = (state: any): any => {
+  if (!state) return state;
+
+  const deserializePath = (path: any) => {
+    if (!path) return null;
+    return {
+      ...path,
+      createdAt: path.createdAt ? new Date(path.createdAt) : new Date(),
+      updatedAt: path.updatedAt ? new Date(path.updatedAt) : new Date(),
+      assessments: path.assessments?.map((a: any) => ({
+        ...a,
+        completedAt: a.completedAt ? new Date(a.completedAt) : undefined
+      })) || []
+    };
+  };
+
+  return {
+    ...state,
+    paths: state.paths ? Object.fromEntries(
+      Object.entries(state.paths || {}).map(([key, path]: [string, any]) => [
+        key,
+        deserializePath(path)
+      ])
+    ) : {},
+    currentPath: deserializePath(state.currentPath),
+    service: new LearningPathService()
+  };
+};
+
+const initialState = {
+  paths: {},
   currentPath: null,
   service: new LearningPathService(),
+  isLoading: false,
+  error: null
+};
 
-  initialize: async (documentId: string) => {
-    console.log('🔄 Initializing learning path for document:', documentId);
-    
-    // Try to load from storage first
-    const stored = loadFromStorage();
-    if (stored && stored.paths[documentId]) {
-      console.log('📚 Using existing learning path from storage');
-      set({ currentPath: stored.paths[documentId] });
-      return;
-    }
+export const useLearningPathStore = create<LearningPathState>()(
+  persist(
+    (set, get) => ({
+      ...initialState,
 
-    try {
-      const path = await get().service.createLearningPath(documentId);
-      console.log('✨ Created new learning path:', {
-        concepts: path.concepts.length,
-        materials: path.concepts.reduce((acc, c) => acc + c.materials.length, 0),
-        questions: path.concepts.reduce((acc, c) => acc + c.practiceQuestions.length, 0)
-      });
+      initialize: async (documentId: string) => {
+        console.log('🔄 Initializing learning path for document:', documentId);
+        set({ isLoading: true, error: null });
 
-      // Save to storage
-      const newStored: StoredData = {
-        paths: {
-          ...stored?.paths || {},
-          [documentId]: path
-        },
-        lastUpdated: new Date()
-      };
-      saveToStorage(newStored);
-      
-      set({ currentPath: path });
-    } catch (error) {
-      console.error('❌ Error initializing learning path:', error);
-      throw error;
-    }
-  },
+        try {
+          // Check if we already have this path
+          const existingPath = get().paths[documentId];
+          if (existingPath) {
+            console.log('📚 Using existing learning path from storage');
+            set({ currentPath: existingPath, isLoading: false });
+            return;
+          }
 
-  reset: () => {
-    console.log('🔄 Resetting learning path store');
-    set({ currentPath: null });
-  },
-
-  getCurrentConcept: () => {
-    const { currentPath } = get();
-    if (!currentPath) return null;
-    return currentPath.concepts.find(c => c.id === currentPath.currentConceptId) || null;
-  },
-
-  getConfidenceLevel: (confidence: number) => {
-    if (confidence >= appConfig.learningPath.confidence.mastered) return 'Mastered';
-    if (confidence >= appConfig.learningPath.confidence.confident) return 'Confident';
-    if (confidence >= appConfig.learningPath.confidence.learning) return 'Learning';
-    return 'Beginner';
-  },
-
-  updateProgress: (conceptId: string, confidence?: number) => {
-    set(state => {
-      if (!state.currentPath) return state;
-
-      console.log('📈 Updating progress for concept:', conceptId, confidence);
-
-      const progress = state.currentPath.progress[conceptId] || {
-        completedMaterials: [],
-        completedQuestions: [],
-        confidence: 0
-      };
-
-      if (confidence !== undefined) {
-        progress.confidence = confidence;
-      }
-
-      state.currentPath.progress[conceptId] = progress;
-
-      // Update concept status based on progress
-      const concept = state.currentPath.concepts.find(c => c.id === conceptId);
-      if (concept) {
-        if (progress.completedMaterials.length === concept.materials.length &&
-            progress.completedQuestions.length === concept.practiceQuestions.length) {
-          concept.status = 'completed';
-          console.log('🎉 Concept completed:', conceptId);
-        } else if (progress.completedMaterials.length > 0 || progress.completedQuestions.length > 0) {
-          concept.status = 'in-progress';
-          console.log('🔄 Concept in progress:', conceptId);
-        }
-      }
-
-      // Save updated state to storage
-      const stored = loadFromStorage();
-      if (stored && state.currentPath) {
-        const newStored: StoredData = {
-          paths: {
-            ...stored.paths,
-            [state.currentPath.documentId]: state.currentPath
-          },
-          lastUpdated: new Date()
-        };
-        saveToStorage(newStored);
-      }
-
-      return {
-        currentPath: {
-          ...state.currentPath,
-          updatedAt: new Date()
-        }
-      };
-    });
-  },
-
-  completeMaterial: (conceptId: string, materialId: string) => {
-    set(state => {
-      if (!state.currentPath) return state;
-
-      console.log('📚 Completing material:', materialId, 'for concept:', conceptId);
-
-      const progress = state.currentPath.progress[conceptId] || {
-        completedMaterials: [],
-        completedQuestions: [],
-        confidence: 0
-      };
-
-      if (!progress.completedMaterials.includes(materialId)) {
-        progress.completedMaterials.push(materialId);
-        state.currentPath.progress[conceptId] = progress;
-        
-        // Update concept status if all materials are completed
-        const concept = state.currentPath.concepts.find(c => c.id === conceptId);
-        if (concept && progress.completedMaterials.length === concept.materials.length) {
-          concept.status = 'completed';
-          console.log('🎉 All materials completed for concept:', conceptId);
-        }
-        
-        // Save updated state to storage
-        const stored = loadFromStorage();
-        if (stored && state.currentPath) {
-          const newStored: StoredData = {
+          // Create new path if not found
+          console.log('🛠️ Creating new learning path');
+          const newPath = await get().service.createLearningPath(documentId);
+          
+          // Update storage
+          set(state => ({
             paths: {
-              ...stored.paths,
-              [state.currentPath.documentId]: state.currentPath
+              ...(state.paths || {}),
+              [documentId]: newPath
             },
-            lastUpdated: new Date()
+            currentPath: newPath,
+            isLoading: false
+          }));
+
+          console.log('✅ Learning path initialized successfully');
+        } catch (error) {
+          console.error('❌ Error initializing learning path:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to initialize learning path',
+            isLoading: false 
+          });
+          throw error;
+        }
+      },
+
+      reset: () => {
+        console.log('🔄 Resetting learning path store');
+        set(initialState);
+      },
+
+      getCurrentConcept: () => {
+        const { currentPath } = get();
+        if (!currentPath) return null;
+        return currentPath.concepts.find(c => c.id === currentPath.currentConceptId) || null;
+      },
+
+      getConfidenceLevel: (confidence: number) => {
+        if (confidence >= appConfig.learningPath.confidence.mastered) return 'Mastered';
+        if (confidence >= appConfig.learningPath.confidence.confident) return 'Confident';
+        if (confidence >= appConfig.learningPath.confidence.learning) return 'Learning';
+        return 'Beginner';
+      },
+
+      updateProgress: (conceptId: string, confidence?: number) => {
+        set(state => {
+          if (!state.currentPath) return state;
+
+          console.log('📈 Updating progress for concept:', conceptId, confidence);
+
+          const updatedPath = {
+            ...state.currentPath,
+            progress: {
+              ...(state.currentPath.progress || {}),
+              [conceptId]: {
+                ...(state.currentPath.progress[conceptId] || {}),
+                confidence: confidence ?? state.currentPath.progress[conceptId]?.confidence ?? 0
+              }
+            },
+            updatedAt: new Date()
           };
-          saveToStorage(newStored);
-        }
-      }
 
-      return {
-        currentPath: {
-          ...state.currentPath,
-          updatedAt: new Date()
-        }
-      };
-    });
-  },
-
-  completeQuestion: (conceptId: string, questionId: string) => {
-    set(state => {
-      if (!state.currentPath) return state;
-
-      console.log('❓ Completing question:', questionId, 'for concept:', conceptId);
-
-      const progress = state.currentPath.progress[conceptId] || {
-        completedMaterials: [],
-        completedQuestions: [],
-        confidence: 0
-      };
-
-      if (!progress.completedQuestions.includes(questionId)) {
-        progress.completedQuestions.push(questionId);
-        state.currentPath.progress[conceptId] = progress;
-        
-        // Update concept status if all questions are completed
-        const concept = state.currentPath.concepts.find(c => c.id === conceptId);
-        if (concept && progress.completedQuestions.length === concept.practiceQuestions.length) {
-          concept.status = 'completed';
-          console.log('🎉 All questions completed for concept:', conceptId);
-        }
-        
-        // Save updated state to storage
-        const stored = loadFromStorage();
-        if (stored && state.currentPath) {
-          const newStored: StoredData = {
+          return {
+            currentPath: updatedPath,
             paths: {
-              ...stored.paths,
-              [state.currentPath.documentId]: state.currentPath
-            },
-            lastUpdated: new Date()
+              ...(state.paths || {}),
+              [updatedPath.documentId]: updatedPath
+            }
           };
-          saveToStorage(newStored);
-        }
-      }
+        });
+      },
 
-      return {
-        currentPath: {
-          ...state.currentPath,
-          updatedAt: new Date()
-        }
-      };
-    });
-  }
-})); 
+      completeMaterial: (conceptId: string, materialId: string) => {
+        set(state => {
+          if (!state.currentPath) return state;
+
+          console.log('📚 Completing material:', materialId, 'for concept:', conceptId);
+
+          const progress = {
+            ...(state.currentPath.progress[conceptId] || {
+              completedMaterials: [],
+              completedQuestions: [],
+              confidence: 0
+            })
+          };
+
+          if (!progress.completedMaterials?.includes(materialId)) {
+            progress.completedMaterials = [...(progress.completedMaterials || []), materialId];
+            
+            const updatedPath = {
+              ...state.currentPath,
+              progress: {
+                ...(state.currentPath.progress || {}),
+                [conceptId]: progress
+              },
+              updatedAt: new Date()
+            };
+
+            return {
+              currentPath: updatedPath,
+              paths: {
+                ...(state.paths || {}),
+                [updatedPath.documentId]: updatedPath
+              }
+            };
+          }
+
+          return state;
+        });
+      },
+
+      completeQuestion: (conceptId: string, questionId: string) => {
+        set(state => {
+          if (!state.currentPath) return state;
+
+          console.log('❓ Completing question:', questionId, 'for concept:', conceptId);
+
+          const progress = {
+            ...(state.currentPath.progress[conceptId] || {
+              completedMaterials: [],
+              completedQuestions: [],
+              confidence: 0
+            })
+          };
+
+          if (!progress.completedQuestions?.includes(questionId)) {
+            progress.completedQuestions = [...(progress.completedQuestions || []), questionId];
+            
+            const updatedPath = {
+              ...state.currentPath,
+              progress: {
+                ...(state.currentPath.progress || {}),
+                [conceptId]: progress
+              },
+              updatedAt: new Date()
+            };
+
+            return {
+              currentPath: updatedPath,
+              paths: {
+                ...(state.paths || {}),
+                [updatedPath.documentId]: updatedPath
+              }
+            };
+          }
+
+          return state;
+        });
+      }
+    }),
+    {
+      name: 'learning-path-storage',
+      version: 1,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      serialize: serializeState,
+      deserialize: deserializeState,
+      partialize: (state) => ({
+        paths: state.paths || {},
+        currentPath: state.currentPath
+      })
+    }
+  )
+); 
