@@ -24,20 +24,41 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
   const [view, setView] = useState<'assessment' | 'concepts' | 'progress'>('assessment');
 
   useEffect(() => {
+    console.log('🔄 Learning path component mounted');
+    const initialize = async () => {
+      try {
+        await initializePath(url);
+      } catch (error) {
+        console.error('❌ Initialization error:', error);
+      }
+    };
+    
     if (!currentPath) {
-      initializePath(url);
+      console.log('📚 Starting initialization');
+      initialize();
+    } else {
+      console.log('📚 Using existing learning path');
+      setView('concepts');
     }
   }, [url, currentPath, initializePath]);
 
   const handleAssessmentComplete = (assessment: Assessment) => {
+    console.log('✅ Assessment completed, switching to concepts view');
     setView('concepts');
   };
 
   if (error) {
+    console.error('❌ Rendering error state:', error);
     return (
       <div className="p-4 text-destructive text-center">
         <p>{error}</p>
-        <Button variant="outline" onClick={() => initializePath(url)}>
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            console.log('🔄 Retrying initialization');
+            initializePath(url);
+          }}
+        >
           Retry
         </Button>
       </div>
@@ -46,6 +67,7 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
 
   return (
     <div className="flex flex-col h-full">
+
 
       {/* Loading State */}
       {isLoading && (
@@ -59,15 +81,17 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
 
       {/* Content */}
       {!isLoading && (
-        <Card className="flex-1 overflow-hidden">
+        <div>
           <ScrollArea className="h-full">
             <div className="p-4">
-              <AnimatePresence mode="wait">
-                {view === 'assessment' && !currentPath && (
+              <AnimatePresence mode="wait" initial={false}>
+                {view === 'assessment' && !currentPath?.assessments?.length && (
                   <motion.div
+                    key="assessment"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <ErrorBoundary>
                       <InitialAssessment onComplete={handleAssessmentComplete} />
@@ -75,11 +99,14 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
                   </motion.div>
                 )}
 
-                {view === 'concepts' && currentPath && (
+                {((view === 'concepts' && currentPath) || 
+                  (currentPath?.assessments?.length > 0)) && (
                   <motion.div
+                    key="concepts"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <ErrorBoundary>
                       <ConceptView 
@@ -91,9 +118,11 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
 
                 {view === 'progress' && currentPath && (
                   <motion.div
+                    key="progress"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <ErrorBoundary>
                       <ProgressDashboard 
@@ -105,7 +134,7 @@ export function LearningPath({ url, currentPage, onBack }: LearningPathProps) {
               </AnimatePresence>
             </div>
           </ScrollArea>
-        </Card>
+        </div>
       )}
     </div>
   );
