@@ -20,19 +20,22 @@ import { useLearningPathStore } from '@/lib/store/learning-path-store';
 import { LearningConcept, LearningMaterial } from '@/lib/types/learning-path';
 import { cn } from '@/lib/utils';
 import { usePDFNavigation } from '@/lib/hooks/use-pdf-navigation';
+import { ConceptQuiz } from '@/components/pdf/features/learning-path/concept-quiz';
 
 interface ConceptDetailProps {
   concept: LearningConcept;
-  onStartPractice: () => void;
 }
 
-export function ConceptDetail({ concept, onStartPractice }: ConceptDetailProps) {
+export function ConceptDetail({ concept }: ConceptDetailProps) {
   const [activeTab, setActiveTab] = useState<string>('materials');
-  const { navigateToPage } = usePDFNavigation();
-  const { updateProgress } = useLearningPathStore();
+  const { updateProgress, completeMaterial } = useLearningPathStore();
 
   const handleMaterialComplete = (materialId: string) => {
-    updateProgress(concept.id, undefined, materialId);
+    completeMaterial(concept.id, materialId);
+  };
+
+  const handlePracticeComplete = (confidence: number) => {
+    updateProgress(concept.id, confidence);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -92,7 +95,7 @@ export function ConceptDetail({ concept, onStartPractice }: ConceptDetailProps) 
 
         <TabsContent value="materials" className="mt-4">
           <div className="space-y-4">
-            {concept.materials.map((material, index) => (
+            {concept.materials.map((material) => (
               <Card key={material.id} className="p-4">
                 <div className="flex items-start gap-4">
                   <div 
@@ -101,7 +104,7 @@ export function ConceptDetail({ concept, onStartPractice }: ConceptDetailProps) 
                   >
                     {material.emoji}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <h3 className="font-medium">{material.title}</h3>
@@ -110,25 +113,29 @@ export function ConceptDetail({ concept, onStartPractice }: ConceptDetailProps) 
                       </Badge>
                     </div>
 
-                    <div className="prose prose-sm max-w-none">
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
                       {material.content.split('\n').map((paragraph, i) => (
-                        <p key={i} className="text-sm text-muted-foreground">
-                          {paragraph}
-                        </p>
+                        <div key={i} className="mb-4">
+                          {paragraph.startsWith('- ') ? (
+                            <ul className="list-disc list-inside">
+                              <li>{paragraph.substring(2)}</li>
+                            </ul>
+                          ) : paragraph.startsWith('# ') ? (
+                            <h4 className="text-lg font-medium mt-4 mb-2">{paragraph.substring(2)}</h4>
+                          ) : paragraph.startsWith('> ') ? (
+                            <blockquote className="border-l-2 border-primary pl-4 italic">
+                              {paragraph.substring(2)}
+                            </blockquote>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              {paragraph}
+                            </p>
+                          )}
+                        </div>
                       ))}
                     </div>
 
                     <div className="flex items-center gap-4 mt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigateToPage(material.pageReferences[0])}
-                        className="gap-2"
-                      >
-                        <BookOpen className="h-4 w-4" />
-                        View in Document
-                      </Button>
-
                       <Button
                         size="sm"
                         onClick={() => handleMaterialComplete(material.id)}
@@ -146,21 +153,11 @@ export function ConceptDetail({ concept, onStartPractice }: ConceptDetailProps) 
         </TabsContent>
 
         <TabsContent value="practice" className="mt-4">
-          <Card className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex-1 space-y-1">
-                <h3 className="font-medium">Ready to Practice?</h3>
-                <p className="text-sm text-muted-foreground">
-                  Test your understanding with practice questions
-                </p>
-              </div>
-
-              <Button onClick={onStartPractice} className="gap-2">
-                Start Practice
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </Card>
+          <ConceptQuiz
+            concept={concept}
+            onComplete={handlePracticeComplete}
+            onBack={() => setActiveTab('materials')}
+          />
         </TabsContent>
       </Tabs>
     </div>

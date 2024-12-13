@@ -11,7 +11,9 @@ import {
   BookOpen, 
   BarChart, 
   Lock,
-  CheckCircle 
+  CheckCircle,
+  Brain,
+  CheckCircle2
 } from 'lucide-react';
 import { useLearningPathStore } from '@/lib/store/learning-path-store';
 import { LearningConcept, ConceptStatus } from '@/lib/types/learning-path';
@@ -25,11 +27,8 @@ interface ConceptViewProps {
 }
 
 export function ConceptView({ onProgressView }: ConceptViewProps) {
-  const { currentPath, getCurrentConcept, getConfidenceLevel, updateProgress } = useLearningPathStore();
-  const [selectedConcept, setSelectedConcept] = useState<LearningConcept | null>(
-    getCurrentConcept()
-  );
-  const [showQuiz, setShowQuiz] = useState(false);
+  const { currentPath, getCurrentConcept, getConfidenceLevel } = useLearningPathStore();
+  const [selectedConcept, setSelectedConcept] = useState<LearningConcept | null>(null);
 
   const statusConfig: Record<ConceptStatus, { 
     icon: React.ElementType; 
@@ -58,25 +57,11 @@ export function ConceptView({ onProgressView }: ConceptViewProps) {
     }
   };
 
-  if (showQuiz && selectedConcept) {
-    return (
-      <ConceptQuiz
-        concept={selectedConcept}
-        onComplete={(confidence) => {
-          updateProgress(selectedConcept.id, confidence);
-          setShowQuiz(false);
-        }}
-        onBack={() => setShowQuiz(false)}
-      />
-    );
-  }
-
   if (selectedConcept) {
     return (
       <ConceptDetail
         concept={selectedConcept}
         onBack={() => setSelectedConcept(null)}
-        onQuiz={() => setShowQuiz(true)}
       />
     );
   }
@@ -102,6 +87,8 @@ export function ConceptView({ onProgressView }: ConceptViewProps) {
           const StatusIcon = status.icon;
           const confidence = currentPath.progress[concept.id]?.confidence || 0;
           const confidenceLevel = getConfidenceLevel(confidence);
+          const completedMaterials = currentPath.progress[concept.id]?.completedMaterials.length || 0;
+          const completedQuestions = currentPath.progress[concept.id]?.completedQuestions.length || 0;
 
           return (
             <Card
@@ -118,9 +105,14 @@ export function ConceptView({ onProgressView }: ConceptViewProps) {
               }}
             >
               <div className="flex items-center gap-4">
-                <StatusIcon className={cn("h-5 w-5", status.color)} />
+                <div 
+                  className="h-10 w-10 rounded-lg flex items-center justify-center text-lg"
+                  style={{ backgroundColor: `${concept.color}20`, color: concept.color }}
+                >
+                  {concept.emoji}
+                </div>
                 
-                <div className="flex-1 space-y-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="font-medium">{concept.title}</h3>
                     <Badge variant="secondary" className="text-xs">
@@ -128,23 +120,25 @@ export function ConceptView({ onProgressView }: ConceptViewProps) {
                     </Badge>
                   </div>
                   
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {concept.description}
                   </p>
 
-                  {concept.status !== 'locked' && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-muted-foreground">
-                        Confidence:
-                      </span>
-                      <Badge variant="outline">
-                        {confidenceLevel}
-                      </Badge>
-                      <span className="text-muted-foreground">
-                        ({Math.round(confidence)}%)
-                      </span>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <BookOpen className="h-4 w-4" />
+                      <span>{completedMaterials}/{concept.materials.length}</span>
                     </div>
-                  )}
+                    
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Brain className="h-4 w-4" />
+                      <span>{completedQuestions}/{concept.practiceQuestions.length}</span>
+                    </div>
+
+                    {concept.status === 'completed' && (
+                      <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
+                    )}
+                  </div>
                 </div>
 
                 {concept.status !== 'locked' && (
