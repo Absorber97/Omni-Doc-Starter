@@ -51,6 +51,10 @@ OmniDoc is a sophisticated desktop-focused PDF viewer and analysis tool that com
 
 ![Chat](https://github.com/Absorber97/Omni-Doc-Starter/blob/main/assets/Chat.png)
 
+### 🔓 Secret Feature???
+
+Curious about what it could be? Nothing special. But a simple cool one. Unlock it by running the app.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
