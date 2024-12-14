@@ -57,6 +57,16 @@ const initialState = {
 
 const colors: MCQ['color'][] = ['blue', 'green', 'orange', 'purple', 'pink'];
 
+// Add shuffle utility function
+function shuffleArray<T>(array: T[]): T[] {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+}
+
 export const useMCQStore = create<MCQState>()(
   persist(
     (set, get) => ({
@@ -132,28 +142,33 @@ export const useMCQStore = create<MCQState>()(
           });
 
           const generatedMCQs = JSON.parse(response.choices[0].message.content || '{"questions": []}');
-          const questions: MCQ[] = generatedMCQs.questions.map((mcq: any, index: number) => ({
-            id: `mcq-${index}`,
-            question: mcq.question,
-            options: mcq.options.map((opt: any, optIndex: number) => ({
+          const questions: MCQ[] = generatedMCQs.questions.map((mcq: any, index: number) => {
+            // Shuffle the options array
+            const shuffledOptions = shuffleArray(mcq.options.map((opt: any, optIndex: number) => ({
               id: `opt-${index}-${optIndex}`,
               text: opt.text,
               isCorrect: opt.isCorrect
-            })),
-            explanation: mcq.explanation,
-            emoji: mcq.emoji,
-            color: mcq.color,
-            completed: false,
-            pageNumber: mcq.pageNumber || Math.floor(Math.random() * pageCount) + 1,
-            attempts: [],
-            lastAttemptCorrect: undefined,
-            achievement: {
-              id: `achievement-${index}`,
-              name: mcq.achievement.name,
-              emoji: mcq.achievement.emoji,
-              isUnlocked: false
-            }
-          }));
+            })));
+
+            return {
+              id: `mcq-${index}`,
+              question: mcq.question,
+              options: shuffledOptions,
+              explanation: mcq.explanation,
+              emoji: mcq.emoji,
+              color: mcq.color,
+              completed: false,
+              pageNumber: mcq.pageNumber || Math.floor(Math.random() * pageCount) + 1,
+              attempts: [],
+              lastAttemptCorrect: undefined,
+              achievement: {
+                id: `achievement-${index}`,
+                name: mcq.achievement.name,
+                emoji: mcq.achievement.emoji,
+                isUnlocked: false
+              }
+            };
+          });
 
           set({ questions, isLoading: false, error: null });
           await extractor.cleanup();
