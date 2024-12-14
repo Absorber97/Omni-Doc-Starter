@@ -16,6 +16,14 @@ export interface MCQAttempt {
   isCorrect: boolean;
 }
 
+export interface MCQAchievement {
+  id: string;
+  name: string;
+  emoji: string;
+  isUnlocked: boolean;
+  unlockedAt?: number;
+}
+
 export interface MCQ {
   id: string;
   question: string;
@@ -27,6 +35,7 @@ export interface MCQ {
   pageNumber: number;
   attempts: MCQAttempt[];
   lastAttemptCorrect?: boolean;
+  achievement: MCQAchievement;
 }
 
 interface MCQState {
@@ -98,6 +107,7 @@ export const useMCQStore = create<MCQState>()(
                 4. Choose a relevant emoji that matches the content
                 5. Assign a color from: blue, green, orange, purple, pink
                 6. Assign a page number where this concept is most relevant (between 1 and ${pageCount})
+                7. Create a creative achievement name (max 3 words) and unique achievement emoji for completing this question correctly
 
                 Format as JSON: { "questions": [{ 
                   "question", 
@@ -105,7 +115,11 @@ export const useMCQStore = create<MCQState>()(
                   "explanation",
                   "emoji", 
                   "color", 
-                  "pageNumber" 
+                  "pageNumber",
+                  "achievement": {
+                    "name": "short creative name",
+                    "emoji": "unique emoji"
+                  }
                 }] }`
               },
               {
@@ -132,7 +146,13 @@ export const useMCQStore = create<MCQState>()(
             completed: false,
             pageNumber: mcq.pageNumber || Math.floor(Math.random() * pageCount) + 1,
             attempts: [],
-            lastAttemptCorrect: undefined
+            lastAttemptCorrect: undefined,
+            achievement: {
+              id: `achievement-${index}`,
+              name: mcq.achievement.name,
+              emoji: mcq.achievement.emoji,
+              isUnlocked: false
+            }
           }));
 
           set({ questions, isLoading: false, error: null });
@@ -157,7 +177,12 @@ export const useMCQStore = create<MCQState>()(
                 isCorrect
               }
             ],
-            lastAttemptCorrect: isCorrect
+            lastAttemptCorrect: isCorrect,
+            achievement: isCorrect ? {
+              ...q.achievement,
+              isUnlocked: true,
+              unlockedAt: Date.now()
+            } : q.achievement
           } : q
         );
         set({ questions: updatedQuestions });

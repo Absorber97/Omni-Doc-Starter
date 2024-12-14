@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useMCQStore } from '@/lib/store/mcq-store';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MCQAchievements } from './mcq-achievements';
 
 interface MCQProps {
   url: string;
@@ -148,6 +149,10 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
           </div>
           <Progress value={progress} className="h-2" />
         </div>
+
+        <MCQAchievements 
+          achievements={questions.map(q => q.achievement)}
+        />
 
         <div className="flex items-center justify-between bg-muted/30 backdrop-blur-sm p-3 rounded-lg">
           <Button
