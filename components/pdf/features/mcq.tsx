@@ -131,12 +131,40 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
         </div>
       </Alert>
 
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Progress</span>
-          <span>{completedCount} of {questions.length} completed</span>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>Progress</span>
+            <span>{completedCount} of {questions.length} completed</span>
+          </div>
+          <Progress value={progress} className="h-2" />
         </div>
-        <Progress value={progress} className="h-2" />
+
+        <div className="flex items-center justify-between bg-muted/30 backdrop-blur-sm p-3 rounded-lg">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={previousQuestion}
+            disabled={currentIndex === 0}
+            className="flex items-center gap-2"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+          <span className="text-sm font-medium">
+            {currentIndex + 1} of {questions.length}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={nextQuestion}
+            disabled={currentIndex === questions.length - 1}
+            className="flex items-center gap-2"
+          >
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="relative min-h-[500px] w-full">
@@ -151,7 +179,7 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
             className="absolute w-full"
           >
             <Card className={cn(
-              "p-8 mb-16",
+              "p-8 mb-8",
               "transition-colors hover:bg-muted/30",
               getBorderColorClass(currentQuestion.color)
             )}>
@@ -241,32 +269,6 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
             </Card>
           </motion.div>
         </AnimatePresence>
-      </div>
-
-      <div className="fixed bottom-4 left-4 right-4 flex items-center justify-between bg-background/80 backdrop-blur-sm p-4 rounded-lg border shadow-sm">
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={previousQuestion}
-          disabled={currentIndex === 0}
-          className="flex items-center gap-2"
-        >
-          <ChevronLeft className="h-5 w-5" />
-          Previous
-        </Button>
-        <span className="text-sm font-medium">
-          {currentIndex + 1} of {questions.length}
-        </span>
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={nextQuestion}
-          disabled={currentIndex === questions.length - 1}
-          className="flex items-center gap-2"
-        >
-          Next
-          <ChevronRight className="h-5 w-5" />
-        </Button>
       </div>
     </div>
   );
