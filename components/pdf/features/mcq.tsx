@@ -121,7 +121,7 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
   };
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-8 p-4">
       <Alert variant="default" className="bg-muted/50 border-none">
         <div className="flex items-center gap-2">
           <Info className="h-4 w-4" />
@@ -131,7 +131,7 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
         </div>
       </Alert>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>Progress</span>
@@ -167,7 +167,7 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
         </div>
       </div>
 
-      <div className="relative min-h-[500px] w-full">
+      <div className="relative min-h-[500px] w-full mb-16">
         <AnimatePresence initial={false} mode="wait" custom={direction}>
           <motion.div
             key={currentIndex}
@@ -179,92 +179,138 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
             className="absolute w-full"
           >
             <Card className={cn(
-              "p-8 mb-8",
-              "transition-colors hover:bg-muted/30",
+              "p-0 overflow-hidden mb-8",
+              "transition-colors",
               getBorderColorClass(currentQuestion.color)
             )}>
-              {currentQuestion.completed && (
-                <Badge 
-                  variant="default" 
-                  className="absolute top-4 right-4 bg-green-500/20 text-green-500 dark:bg-green-500/30 dark:text-green-400"
-                >
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Completed
-                </Badge>
-              )}
-
               <div className={cn(
-                "mb-8 p-6 rounded-full w-fit mx-auto",
+                "px-8 py-6 relative",
                 getBackgroundColorClass(currentQuestion.color)
               )}>
-                <span className="text-6xl">{currentQuestion.emoji}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="text-4xl">{currentQuestion.emoji}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentQuestion.pageNumber}
+                    </span>
+                  </div>
+                  {currentQuestion.completed && (
+                    <Badge 
+                      variant="default" 
+                      className="bg-green-500/20 text-green-500 dark:bg-green-500/30 dark:text-green-400"
+                    >
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Completed
+                    </Badge>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="px-8 py-6 border-b">
                 <h3 className="text-xl font-medium leading-relaxed">
                   {currentQuestion.question}
                 </h3>
+              </div>
 
+              <div className="p-8 space-y-6">
                 <RadioGroup
                   value={selectedOption || ""}
                   onValueChange={handleOptionSelect}
                   className="space-y-4"
                 >
-                  {currentQuestion.options.map((option) => {
+                  {currentQuestion.options.map((option, index) => {
                     const isSelected = selectedOption === option.id;
                     const isCorrect = option.isCorrect;
-                    let optionClassName = "p-4 rounded-lg transition-colors";
+                    const optionLabels = ['A', 'B', 'C', 'D'];
                     
-                    if (isSelected) {
-                      optionClassName += isCorrect 
-                        ? " bg-green-500/20 dark:bg-green-500/30" 
-                        : " bg-red-500/20 dark:bg-red-500/30";
-                    } else if (selectedOption && isCorrect) {
-                      optionClassName += " bg-green-500/20 dark:bg-green-500/30";
-                    } else {
-                      optionClassName += " hover:bg-muted";
-                    }
-
                     return (
-                      <div key={option.id} className={optionClassName}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem 
-                            value={option.id}
-                            id={option.id}
-                            disabled={!!selectedOption}
-                          />
-                          <Label 
-                            htmlFor={option.id}
-                            className="flex-1 cursor-pointer"
-                          >
-                            {option.text}
-                          </Label>
-                          {isSelected && (
-                            <CheckCircle2 
+                      <div 
+                        key={option.id} 
+                        className={cn(
+                          "relative pl-8",
+                          "transition-all duration-200",
+                          isSelected && (isCorrect 
+                            ? "scale-[1.02] transform" 
+                            : "opacity-80"
+                          )
+                        )}
+                      >
+                        <div className={cn(
+                          "absolute left-0 top-1/2 -translate-y-1/2",
+                          "text-sm font-medium",
+                          isSelected ? "text-primary" : "text-muted-foreground"
+                        )}>
+                          {optionLabels[index]}
+                        </div>
+                        <div className={cn(
+                          "p-4 rounded-lg border-2 transition-all",
+                          "hover:border-primary/50 cursor-pointer",
+                          isSelected && (isCorrect
+                            ? "border-green-500/50 bg-green-500/10"
+                            : "border-red-500/50 bg-red-500/10"
+                          ),
+                          !isSelected && selectedOption && isCorrect && "border-green-500/50 bg-green-500/10",
+                          !isSelected && !selectedOption && "border-muted"
+                        )}>
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem 
+                              value={option.id}
+                              id={option.id}
+                              disabled={!!selectedOption}
                               className={cn(
-                                "h-4 w-4 ml-2",
-                                isCorrect ? "text-green-500" : "text-red-500"
-                              )} 
+                                isSelected && (isCorrect
+                                  ? "text-green-500 border-green-500"
+                                  : "text-red-500 border-red-500"
+                                )
+                              )}
                             />
-                          )}
+                            <Label 
+                              htmlFor={option.id}
+                              className="flex-1 cursor-pointer"
+                            >
+                              {option.text}
+                            </Label>
+                            {isSelected && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="ml-2"
+                              >
+                                <CheckCircle2 
+                                  className={cn(
+                                    "h-5 w-5",
+                                    isCorrect ? "text-green-500" : "text-red-500"
+                                  )} 
+                                />
+                              </motion.div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </RadioGroup>
 
-                {showExplanation && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-6 p-4 bg-muted/50 rounded-lg"
-                  >
-                    <h4 className="font-medium mb-2">Explanation</h4>
-                    <p className="text-muted-foreground">
-                      {currentQuestion.explanation}
-                    </p>
-                  </motion.div>
-                )}
+                <AnimatePresence>
+                  {showExplanation && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-8"
+                    >
+                      <Card className="bg-muted/50 p-6">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Sparkles className="h-4 w-4" />
+                          <h4 className="font-medium">Explanation</h4>
+                        </div>
+                        <p className="text-muted-foreground text-sm leading-relaxed">
+                          {currentQuestion.explanation}
+                        </p>
+                      </Card>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </Card>
           </motion.div>
