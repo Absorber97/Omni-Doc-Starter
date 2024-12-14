@@ -13,7 +13,9 @@ import {
   Info,
   Sparkles,
   CheckCircle2,
-  HelpCircle
+  HelpCircle,
+  RefreshCcw,
+  History
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMCQStore } from '@/lib/store/mcq-store';
@@ -59,7 +61,7 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [direction, setDirection] = useState(0);
-  const { questions, generateMCQs, markCompleted, isLoading } = useMCQStore();
+  const { questions, generateMCQs, markCompleted, retryQuestion, isLoading } = useMCQStore();
 
   useEffect(() => {
     generateMCQs(url);
@@ -93,8 +95,15 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
     setSelectedOption(optionId);
     setShowExplanation(true);
     if (!currentQuestion.completed) {
-      markCompleted(currentQuestion.id);
+      const isCorrect = currentQuestion.options.find(opt => opt.id === optionId)?.isCorrect || false;
+      markCompleted(currentQuestion.id, optionId, isCorrect);
     }
+  };
+
+  const handleRetry = () => {
+    retryQuestion(currentQuestion.id);
+    setSelectedOption(null);
+    setShowExplanation(false);
   };
 
   const nextQuestion = () => {
@@ -131,7 +140,7 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
         </div>
       </Alert>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>Progress</span>
@@ -167,7 +176,7 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
         </div>
       </div>
 
-      <div className="relative min-h-[500px] w-full mb-16">
+      <div className="relative min-h-[500px] w-full">
         <AnimatePresence initial={false} mode="wait" custom={direction}>
           <motion.div
             key={currentIndex}
@@ -179,40 +188,54 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
             className="absolute w-full"
           >
             <Card className={cn(
-              "p-0 overflow-hidden mb-8",
-              "transition-colors",
+              "p-8 mb-12",
+              "transition-colors hover:bg-muted/30",
               getBorderColorClass(currentQuestion.color)
             )}>
+              {currentQuestion.completed && currentQuestion.lastAttemptCorrect && (
+                <Badge 
+                  variant="default" 
+                  className="absolute top-4 right-4 bg-green-500/20 text-green-500 dark:bg-green-500/30 dark:text-green-400"
+                >
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Completed
+                </Badge>
+              )}
+
               <div className={cn(
-                "px-8 py-6 relative",
+                "mb-8 p-6 rounded-full w-fit mx-auto",
                 getBackgroundColorClass(currentQuestion.color)
               )}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <span className="text-4xl">{currentQuestion.emoji}</span>
-                    <span className="text-sm text-muted-foreground">
-                      Page {currentQuestion.pageNumber}
-                    </span>
-                  </div>
-                  {currentQuestion.completed && (
-                    <Badge 
-                      variant="default" 
-                      className="bg-green-500/20 text-green-500 dark:bg-green-500/30 dark:text-green-400"
-                    >
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Completed
-                    </Badge>
-                  )}
-                </div>
+                <span className="text-6xl">{currentQuestion.emoji}</span>
               </div>
 
-              <div className="px-8 py-6 border-b">
+              <div className="space-y-6">
                 <h3 className="text-xl font-medium leading-relaxed">
                   {currentQuestion.question}
                 </h3>
-              </div>
 
-              <div className="p-8 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {currentQuestion.attempts.length > 0 && (
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <History className="h-4 w-4" />
+                        <span>Attempts: {currentQuestion.attempts.length}</span>
+                      </div>
+                    )}
+                  </div>
+                  {selectedOption && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRetry}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCcw className="h-3 w-3" />
+                      Try Again
+                    </Button>
+                  )}
+                </div>
+
                 <RadioGroup
                   value={selectedOption || ""}
                   onValueChange={handleOptionSelect}
@@ -300,9 +323,16 @@ export function MCQ({ url, currentPage, isLoading: parentLoading }: MCQProps) {
                       className="mt-8"
                     >
                       <Card className="bg-muted/50 p-6">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Sparkles className="h-4 w-4" />
-                          <h4 className="font-medium">Explanation</h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4" />
+                            <h4 className="font-medium">Explanation</h4>
+                          </div>
+                          {currentQuestion.attempts.length > 1 && (
+                            <div className="text-sm text-muted-foreground">
+                              {currentQuestion.attempts.filter(a => a.isCorrect).length} correct of {currentQuestion.attempts.length} attempts
+                            </div>
+                          )}
                         </div>
                         <p className="text-muted-foreground text-sm leading-relaxed">
                           {currentQuestion.explanation}

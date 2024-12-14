@@ -10,6 +10,12 @@ export interface MCQOption {
   isCorrect: boolean;
 }
 
+export interface MCQAttempt {
+  timestamp: number;
+  selectedOptionId: string;
+  isCorrect: boolean;
+}
+
 export interface MCQ {
   id: string;
   question: string;
@@ -19,6 +25,8 @@ export interface MCQ {
   color: 'blue' | 'green' | 'orange' | 'purple' | 'pink';
   completed: boolean;
   pageNumber: number;
+  attempts: MCQAttempt[];
+  lastAttemptCorrect?: boolean;
 }
 
 interface MCQState {
@@ -27,7 +35,8 @@ interface MCQState {
   error: string | null;
   setQuestions: (questions: MCQ[]) => void;
   generateMCQs: (url: string) => Promise<void>;
-  markCompleted: (id: string) => void;
+  markCompleted: (id: string, optionId: string, isCorrect: boolean) => void;
+  retryQuestion: (id: string) => void;
   reset: () => void;
 }
 
@@ -121,7 +130,9 @@ export const useMCQStore = create<MCQState>()(
             emoji: mcq.emoji,
             color: mcq.color,
             completed: false,
-            pageNumber: mcq.pageNumber || Math.floor(Math.random() * pageCount) + 1
+            pageNumber: mcq.pageNumber || Math.floor(Math.random() * pageCount) + 1,
+            attempts: [],
+            lastAttemptCorrect: undefined
           }));
 
           set({ questions, isLoading: false, error: null });
@@ -132,10 +143,34 @@ export const useMCQStore = create<MCQState>()(
         }
       },
 
-      markCompleted: (id) => {
+      markCompleted: (id, optionId, isCorrect) => {
         const { questions } = get();
         const updatedQuestions = questions.map(q =>
-          q.id === id ? { ...q, completed: true } : q
+          q.id === id ? {
+            ...q,
+            completed: true,
+            attempts: [
+              ...q.attempts,
+              {
+                timestamp: Date.now(),
+                selectedOptionId: optionId,
+                isCorrect
+              }
+            ],
+            lastAttemptCorrect: isCorrect
+          } : q
+        );
+        set({ questions: updatedQuestions });
+      },
+
+      retryQuestion: (id) => {
+        const { questions } = get();
+        const updatedQuestions = questions.map(q =>
+          q.id === id ? {
+            ...q,
+            completed: false,
+            lastAttemptCorrect: undefined
+          } : q
         );
         set({ questions: updatedQuestions });
       },
